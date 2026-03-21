@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>do-manager - DigitalOcean CLI & Go Library</title>
+  <meta name="description" content="A modular Go CLI and library for managing DigitalOcean infrastructure. Droplets, SSH keys, regions, and more." />
+  <style>
+    :root {
+      --bg:        #0d1117;
+      --bg-card:   #161b22;
+      --bg-code:   #1c2128;
+      --border:    #30363d;
+      --text:      #c9d1d9;
+      --text-dim:  #8b949e;
+      --cyan:      #39c5cf;
+      --cyan-dim:  #1f6a6e;
+      --green:     #3fb950;
+      --red:       #f85149;
+      --yellow:    #d29922;
+      --white:     #f0f6fc;
+      --radius:    8px;
+      --font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 15px;
+      line-height: 1.6;
+    }
+
+    a { color: var(--cyan); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ------------------------------------------------------------------ NAV */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(13,17,23,0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 56px;
+    }
+
+    .nav-brand {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 1.05rem;
+      color: var(--cyan);
+      letter-spacing: -0.5px;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 1.5rem;
+      list-style: none;
+    }
+
+    .nav-links a {
+      color: var(--text-dim);
+      font-size: 0.875rem;
+      transition: color .15s;
+    }
+
+    .nav-links a:hover { color: var(--white); text-decoration: none; }
+
+    .nav-badge {
+      background: var(--cyan-dim);
+      color: var(--cyan);
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      padding: 2px 8px;
+      border-radius: 20px;
+      border: 1px solid var(--cyan-dim);
+    }
+
+    /* --------------------------------------------------------------- LAYOUT */
+    .layout {
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      max-width: 1200px;
+      margin: 0 auto;
+      gap: 0;
+    }
+
+    /* --------------------------------------------------------------- SIDEBAR */
+    aside {
+      position: sticky;
+      top: 56px;
+      height: calc(100vh - 56px);
+      overflow-y: auto;
+      padding: 2rem 1rem 2rem 0;
+      border-right: 1px solid var(--border);
+    }
+
+    .sidebar-section {
+      margin-bottom: 1.5rem;
+    }
+
+    .sidebar-title {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-dim);
+      padding: 0 0.75rem;
+      margin-bottom: 0.4rem;
+    }
+
+    .sidebar-link {
+      display: block;
+      padding: 0.3rem 0.75rem;
+      color: var(--text-dim);
+      font-size: 0.875rem;
+      border-radius: 6px;
+      transition: all .15s;
+    }
+
+    .sidebar-link:hover {
+      background: var(--bg-card);
+      color: var(--white);
+      text-decoration: none;
+    }
+
+    .sidebar-link.sub {
+      padding-left: 1.5rem;
+      font-size: 0.8rem;
+    }
+
+    /* --------------------------------------------------------------- CONTENT */
+    main {
+      padding: 3rem 3rem 6rem;
+      min-width: 0;
+    }
+
+    section { margin-bottom: 4rem; }
+
+    h1 {
+      font-size: 2.2rem;
+      font-weight: 700;
+      color: var(--white);
+      line-height: 1.2;
+      margin-bottom: 0.75rem;
+    }
+
+    h2 {
+      font-size: 1.4rem;
+      font-weight: 600;
+      color: var(--white);
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.5rem;
+      margin-bottom: 1.25rem;
+    }
+
+    h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--white);
+      margin: 1.5rem 0 0.5rem;
+    }
+
+    p { margin-bottom: 0.75rem; color: var(--text); }
+
+    ul { padding-left: 1.25rem; margin-bottom: 0.75rem; }
+    ul li { margin-bottom: 0.25rem; }
+
+    /* --------------------------------------------------------------- HERO */
+    .hero {
+      text-align: center;
+      padding: 4rem 0 2rem;
+      margin-bottom: 2rem;
+    }
+
+    .hero-ascii {
+      font-family: var(--font-mono);
+      font-size: 0.52rem;
+      line-height: 1.2;
+      color: var(--cyan);
+      white-space: pre;
+      display: inline-block;
+      margin-bottom: 1.5rem;
+      text-shadow: 0 0 20px rgba(57,197,207,0.3);
+    }
+
+    .hero-subtitle {
+      font-size: 1.05rem;
+      color: var(--text-dim);
+      max-width: 560px;
+      margin: 0 auto 1.5rem;
+    }
+
+    .badges {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 2rem;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 3px 10px;
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+      color: var(--text-dim);
+    }
+
+    .badge .dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+    }
+
+    .dot-go     { background: #00ADD8; }
+    .dot-green  { background: var(--green); }
+    .dot-cyan   { background: var(--cyan); }
+
+    .btn-group {
+      display: flex;
+      gap: 0.75rem;
+      justify-content: center;
+    }
+
+    .btn {
+      display: inline-block;
+      padding: 0.5rem 1.25rem;
+      border-radius: var(--radius);
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: all .15s;
+      cursor: pointer;
+    }
+
+    .btn-primary {
+      background: var(--cyan);
+      color: #0d1117;
+    }
+
+    .btn-primary:hover {
+      background: #52d9e3;
+      text-decoration: none;
+    }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      background: var(--bg-card);
+      color: var(--white);
+      text-decoration: none;
+    }
+
+    /* ---------------------------------------------------------- CODE BLOCKS */
+    pre, code {
+      font-family: var(--font-mono);
+    }
+
+    code {
+      background: var(--bg-code);
+      color: var(--cyan);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.85em;
+    }
+
+    .terminal {
+      background: var(--bg-code);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin: 1rem 0;
+    }
+
+    .terminal-header {
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border);
+      padding: 0.5rem 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .dot-row {
+      display: flex;
+      gap: 6px;
+    }
+
+    .dot-row span {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+    }
+
+    .d-red    { background: #f85149; }
+    .d-yellow { background: #d29922; }
+    .d-green  { background: #3fb950; }
+
+    .terminal-label {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      margin-left: auto;
+    }
+
+    .terminal-body {
+      padding: 1rem 1.25rem;
+      overflow-x: auto;
+      font-size: 0.82rem;
+      line-height: 1.7;
+    }
+
+    .terminal-body .prompt { color: var(--cyan); user-select: none; }
+    .terminal-body .cmd    { color: var(--white); }
+    .terminal-body .flag   { color: #79c0ff; }
+    .terminal-body .value  { color: #a5d6ff; }
+    .terminal-body .out    { color: var(--text-dim); }
+    .terminal-body .ok     { color: var(--green); }
+    .terminal-body .warn   { color: var(--yellow); }
+    .terminal-body .err    { color: var(--red); }
+    .terminal-body .header { color: var(--cyan); font-weight: bold; }
+    .terminal-body .sep    { color: var(--border); }
+
+    /* --------------------------------------------------------------- TABLES */
+    .ref-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+      margin: 1rem 0;
+    }
+
+    .ref-table th {
+      text-align: left;
+      padding: 0.5rem 0.75rem;
+      border-bottom: 2px solid var(--border);
+      color: var(--text-dim);
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .ref-table td {
+      padding: 0.5rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+
+    .ref-table tr:last-child td { border-bottom: none; }
+    .ref-table tr:hover td { background: var(--bg-card); }
+
+    .tag-required {
+      background: rgba(248,81,73,0.15);
+      color: var(--red);
+      border: 1px solid rgba(248,81,73,0.3);
+      border-radius: 4px;
+      font-size: 0.65rem;
+      padding: 1px 5px;
+      font-family: var(--font-mono);
+      vertical-align: middle;
+    }
+
+    /* ---------------------------------------------------------------- CARDS */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1rem;
+      margin: 1rem 0;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+    }
+
+    .card-icon {
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .card h3 {
+      margin-top: 0;
+      font-size: 0.95rem;
+      color: var(--white);
+    }
+
+    .card p {
+      font-size: 0.82rem;
+      color: var(--text-dim);
+      margin: 0;
+    }
+
+    /* -------------------------------------------------------------- CALLOUT */
+    .callout {
+      background: rgba(57,197,207,0.07);
+      border: 1px solid var(--cyan-dim);
+      border-left: 3px solid var(--cyan);
+      border-radius: var(--radius);
+      padding: 0.75rem 1rem;
+      font-size: 0.875rem;
+      margin: 1rem 0;
+      color: var(--text);
+    }
+
+    .callout-warn {
+      background: rgba(210,153,34,0.07);
+      border-color: rgba(210,153,34,0.4);
+      border-left-color: var(--yellow);
+    }
+
+    /* -------------------------------------------------------------- DIVIDER */
+    hr {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 2.5rem 0;
+    }
+
+    /* -------------------------------------------------------------- FOOTER */
+    footer {
+      text-align: center;
+      padding: 2rem;
+      color: var(--text-dim);
+      font-size: 0.8rem;
+      border-top: 1px solid var(--border);
+    }
+
+    /* ------------------------------------------------------------- RESPONSIVE */
+    @media (max-width: 768px) {
+      .layout { grid-template-columns: 1fr; }
+      aside { display: none; }
+      main { padding: 1.5rem; }
+      .hero-ascii { font-size: 0.35rem; }
+      .nav-links { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <span class="nav-brand">do-manager</span>
+  <ul class="nav-links">
+    <li><a href="#install">Install</a></li>
+    <li><a href="#config">Config</a></li>
+    <li><a href="#droplets">Droplets</a></li>
+    <li><a href="#ssh-keys">SSH Keys</a></li>
+    <li><a href="#resources">Resources</a></li>
+    <li><a href="#library">Library</a></li>
+    <li><a href="https://github.com/franckferman/do-manager">GitHub</a></li>
+  </ul>
+  <span class="nav-badge">v0.1.0</span>
+</nav>
+
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside>
+    <div class="sidebar-section">
+      <div class="sidebar-title">Getting Started</div>
+      <a class="sidebar-link" href="#install">Installation</a>
+      <a class="sidebar-link" href="#config">Configuration</a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-title">CLI Commands</div>
+      <a class="sidebar-link" href="#droplets">Droplets</a>
+      <a class="sidebar-link sub" href="#droplet-list">list</a>
+      <a class="sidebar-link sub" href="#droplet-get">get</a>
+      <a class="sidebar-link sub" href="#droplet-create">create</a>
+      <a class="sidebar-link sub" href="#droplet-delete">delete</a>
+      <a class="sidebar-link sub" href="#droplet-power">power</a>
+      <a class="sidebar-link" href="#ssh-keys">SSH Keys</a>
+      <a class="sidebar-link" href="#resources">Regions / Sizes / Images</a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-title">Library</div>
+      <a class="sidebar-link" href="#library">Go Package API</a>
+      <a class="sidebar-link" href="#architecture">Architecture</a>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main>
+
+    <!-- HERO -->
+    <section class="hero" id="top">
+      <div class="hero-ascii">
+    ██████╗  ██████╗       ███╗   ███╗ █████╗ ███╗   ██╗ █████╗  ██████╗ ███████╗██████╗
+    ██╔══██╗██╔═══██╗      ████╗ ████║██╔══██╗████╗  ██║██╔══██╗██╔════╝ ██╔════╝██╔══██╗
+    ██║  ██║██║   ██║█████╗██╔████╔██║███████║██╔██╗ ██║███████║██║  ███╗█████╗  ██████╔╝
+    ██║  ██║██║   ██║╚════╝██║╚██╔╝██║██╔══██║██║╚██╗██║██╔══██║██║   ██║██╔══╝  ██╔══██╗
+    ██████╔╝╚██████╔╝      ██║ ╚═╝ ██║██║  ██║██║ ╚████║██║  ██║╚██████╔╝███████╗██║  ██║
+    ╚═════╝  ╚═════╝       ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═╝
+      </div>
+
+      <p class="hero-subtitle">
+        A modular <strong style="color:var(--white)">Go CLI and library</strong> for managing DigitalOcean infrastructure.
+        Provision, inspect, and destroy Droplets programmatically or from the terminal.
+      </p>
+
+      <div class="badges">
+        <span class="badge"><span class="dot dot-go"></span>Go 1.21+</span>
+        <span class="badge"><span class="dot dot-green"></span>AGPL-3.0</span>
+        <span class="badge"><span class="dot dot-cyan"></span>godo v2 API</span>
+        <span class="badge"><span class="dot dot-cyan"></span>v0.1.0</span>
+      </div>
+
+      <div class="btn-group">
+        <a class="btn btn-primary" href="#install">Get Started</a>
+        <a class="btn btn-secondary" href="https://github.com/franckferman/do-manager">View on GitHub</a>
+      </div>
+    </section>
+
+    <!-- OVERVIEW CARDS -->
+    <section id="overview">
+      <h2>Overview</h2>
+      <p>
+        <code>do-manager</code> is built on top of <a href="https://github.com/digitalocean/godo"><code>godo</code></a>,
+        the official DigitalOcean Go client. It is designed as a dual-purpose project:
+      </p>
+      <div class="card-grid">
+        <div class="card">
+          <div class="card-icon">&#x1F5A5;</div>
+          <h3>CLI Tool</h3>
+          <p>Manage your DigitalOcean account from the terminal with colored, tabular output and interactive prompts.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">&#x1F4E6;</div>
+          <h3>Go Library</h3>
+          <p>Import <code>pkg/droplet</code>, <code>pkg/sshkey</code>, or <code>pkg/region</code> directly in any Go project.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">&#x26A1;</div>
+          <h3>Parallel Ops</h3>
+          <p>Provision or destroy N Droplets simultaneously via goroutines with panic recovery and per-op error reporting.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">&#x1F527;</div>
+          <h3>No doctl needed</h3>
+          <p>Direct API calls via godo. No external binary, no subprocess parsing, no version mismatch.</p>
+        </div>
+      </div>
+    </section>
+
+    <hr />
+
+    <!-- INSTALL -->
+    <section id="install">
+      <h2>Installation</h2>
+      <p>Requires <strong>Go 1.21+</strong>.</p>
+
+      <h3>From source</h3>
+      <div class="terminal">
+        <div class="terminal-header">
+          <div class="dot-row"><span class="d-red"></span><span class="d-yellow"></span><span class="d-green"></span></div>
+          <span class="terminal-label">bash</span>
+        </div>
+        <div class="terminal-body">
+<span class="prompt">$ </span><span class="cmd">git clone https://github.com/franckferman/do-manager.git</span>
+<span class="prompt">$ </span><span class="cmd">cd do-manager</span>
+<span class="prompt">$ </span><span class="cmd">go mod tidy</span>
+<span class="prompt">$ </span><span class="cmd">go build -o do-manager .</span>
+<span class="prompt">$ </span><span class="cmd">./do-manager version</span>
+<span class="out">do-manager v0.1.0</span>
+        </div>
+      </div>
+
+      <h3>go install</h3>
+      <div class="terminal">
+        <div class="terminal-header">
+          <div class="dot-row"><span class="d-red"></span><span class="d-yellow"></span><span class="d-green"></span></div>
+          <span class="terminal-label">bash</span>
+        </div>
+        <div class="terminal-body">
+<span class="prompt">$ </span><span class="cmd">go install github.com/franckferman/do-manager@latest</span>
+        </div>
+      </div>
+    </section>
+
+    <hr />
+
+    <!-- CONFIG -->
+    <section id="config">
+      <h2>Configuration</h2>
+      <p>
+        The API token is resolved in this order (first match wins):
+      </p>
+
+      <table class="ref-table">
+        <thead><tr><th>Method</th><th>Example</th></tr></thead>
+        <tbody>
+          <tr><td><code>--token</code> flag</td><td><code>do-manager --token dop_v1_xxx droplet list</code></td></tr>
+          <tr><td><code>DO_TOKEN</code> env var</td><td><code>export DO_TOKEN=dop_v1_xxx</code></td></tr>
+          <tr><td><code>~/.do-manager.yaml</code></td><td><code>token: dop_v1_xxx</code></td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout">
+        Generate a Personal Access Token at
+        <a href="https://cloud.digitalocean.com/account/api/tokens">cloud.digitalocean.com/account/api/tokens</a>.
+        Read+Write scope required for all write operations.
+      </div>
+
+      <h3>Config file</h3>
+      <div class="terminal">
+        <div class="terminal-header">
+          <div class="dot-row"><span class="d-red"></span><span class="d-yellow"></span><span class="d-green"></span></div>
+          <span class="terminal-label">~/.do-manager.yaml</span>
+        </div>
+        <div class="terminal-body">
+<span class="out">token: dop_v1_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx</span>
+        </div>
+      </div>
+    </section>
+
+    <hr />
+
+    <!-- DROPLETS -->
+    <section id="droplets">
+      <h2>Droplets</h2>
+      <p>Full lifecycle management: list, inspect, provision (single or batch), delete, and power control.</p>
+
+      <!-- list -->
+      <h3 id="droplet-list">List</h3>
+      <div class="terminal">
+        <div class="terminal-header">
+          <div class="dot-row"><span class="d-red"></span><span class="d-yellow"></span><span class="d-green"></span></div>
+          <span class="terminal-label">do-manager droplet list</span>
+        </div>
+        <div class="terminal-body">
+<span class="prompt">$ </span><span class="cmd">do-manager droplet list</span>
+
+<span class="out">>> 3 Droplet(s)</span>
+
+<span class="header"> ID          | Name       | Status | Region | Size         | IPv4           | IPv6 | Tags</span>
+<span class="sep">-------------|------------|--------|--------|--------------|----------------|------|------</span>
+<span class="out"> 123456789   | web-01     | </span><span class="ok">active</span><span class="out"> | fra1   | s-1vcpu-1gb  | 167.99.12.34   | -    | web</span>
+<span class="out"> 123456790   | db-01      | </span><span class="ok">active</span><span class="out"> | fra1   | s-2vcpu-4gb  | 167.99.12.35   | -    | db</span>
+<span class="out"> 123456791   | bastion    | </span><span class="err">off</span><span class="out">    | nyc1   | s-1vcpu-1gb  | 138.68.0.1     | -    |    </span>
+        </div>
+      </div>
+      <p>Aliases: <code>d ls</code> &nbsp; <code>droplets list</code></p>
+
+      <!-- get -->
+      <h3 id="droplet-get">Get</h3>
+      <div class="terminal">
+        <div class="terminal-header">
+          <div class="dot-row"><span class="d-red"></span><span class="d-yellow"></span><span class="d-green"></span></div>
+          <span class="terminal-label">do-manager droplet get</span>
+        </div>
+        <div class="terminal-body">
+<span class="prompt">$ </span><span class="cmd">do-manager droplet get <span class="value">123456789</span></span>
+
+<span class="out">>> Droplet web-01</span>
+
+<span class="header">  ID:           </span><span class="out">123456789</span>
+<span class="header">  Status:       </span><span class="ok">active</span>
+<span class="header">  Region:       </span><span class="out">Frankfurt 1 (fra1)</span>
+<span class="header">  Size:         </span><span class="out">s-1vcpu-1gb</span>
+<span class="header">  Specs:        </span><span class="out">1 vCPU  /  1024 MB RAM  /  25 GB disk</span>
+<span class="header">  IPv4:         </span><span class="out">167.99.12.34</span>
+<span class="header">  Tags:         </span><span class="out">web</span>
+<span class="header">  Created:      </span><span class="out">2024-01-15T10:30:00Z</span>
+        </div>
+      </div>
+
+      <!-- create -->
+      <h3 id="droplet-create">Create</h3>
+
+      <div class="terminal">
+        <div class="terminal-header">
+          <div class="dot-row"><span class="d-red"></span><span class="d-yellow"></span><span class="d-green"></span></div>
+          <span class="terminal-label">single droplet</span>
+        </div>
+        <div class="terminal-body">
+<span class="prompt">$ </span><span class="cmd">do-manager droplet create</span> <span class="flag">--name</span> <span class="value">web-02</span> <span class="flag">--region</span> <span class="value">fra1</span> <span class="flag">--wait</span>
+<span class="out">>> Creating web-02  [region=fra1  size=s-1vcpu-1gb  image=ubuntu-22-04-x64]</span>
+<span class="ok">✓</span> <span class="out">Droplet created  ID=987654321  status=</span><span class="warn">new</span>
+<span class="warn">~</span> <span class="out">Waiting for active state.........</span>
+<span class="ok">✓</span> <span class="out">Active  IPv4=</span><span class="ok">167.99.99.1</span>
+        </div>
+      </div>
+
+      <div class="terminal">
+        <div class="terminal-header">
+          <div class="dot-row"><span class="d-red"></span><span class="d-yellow"></span><span class="d-green"></span></div>
+          <span class="terminal-label">batch - 5 Droplets in parallel</span>
+        </div>
+        <div class="terminal-body">
+<span class="prompt">$ </span><span class="cmd">do-manager droplet create</span> \
+    <span class="flag">--name</span> <span class="value">node</span> <span class="flag">--count</span> <span class="value">5</span> <span class="flag">--region</span> <span class="value">fra1</span> \
+    <span class="flag">--size</span> <span class="value">s-2vcpu-4gb</span> <span class="flag">--tags</span> <span class="value">lab,pentest</span> <span class="flag">--wait</span>
+<span class="out">>> Creating 5 Droplets in parallel  [base=node  region=fra1  size=s-2vcpu-4gb ...]</span>
+<span class="ok">  ✓ node-01             ID=100001     status=</span><span class="warn">new</span>
+<span class="ok">  ✓ node-02             ID=100002     status=</span><span class="warn">new</span>
+<span class="ok">  ✓ node-03             ID=100003     status=</span><span class="warn">new</span>
+<span class="ok">  ✓ node-04             ID=100004     status=</span><span class="warn">new</span>
+<span class="ok">  ✓ node-05             ID=100005     status=</span><span class="warn">new</span>
+<span class="out">
+~ Waiting for 5 Droplet(s) to become active.................
+  </span><span class="ok">✓ ID=100001       IPv4=10.0.0.1</span>
+<span class="out">  </span><span class="ok">✓ ID=100002       IPv4=10.0.0.2</span>
+<span class="out">  </span><span class="ok">✓ ID=100003       IPv4=10.0.0.3</span>
+<span class="out">  </span><span class="ok">✓ ID=100004       IPv4=10.0.0.4</span>
+<span class="out">  </span><span class="ok">✓ ID=100005       IPv4=10.0.0.5</span>
+        </div>
+      </div>
+
+      <table class="ref-table">
+        <thead><tr><th>Flag</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>--name</code>, <code>-n</code></td><td><span class="tag-required">required</span></td><td>Droplet name (or base name for batch)</td></tr>
+          <tr><td><code>--count</code>, <code>-c</code></td><td><code>1</code></td><td>Number of Droplets to provision in parallel</td></tr>
+          <tr><td><code>--region</code>, <code>-r</code></td><td><code>nyc1</code></td><td>Region slug</td></tr>
+          <tr><td><code>--size</code>, <code>-s</code></td><td><code>s-1vcpu-1gb</code></td><td>Size slug</td></tr>
+          <tr><td><code>--image</code>, <code>-i</code></td><td><code>ubuntu-22-04-x64</code></td><td>Image slug</td></tr>
+          <tr><td><code>--ssh-keys</code></td><td>none</td><td>SSH key IDs (comma-separated)</td></tr>
+          <tr><td><code>--tags</code></td><td>none</td><td>Tags to apply (comma-separated)</td></tr>
+          <tr><td><code>--user-data</code></td><td>none</td><td>Cloud-init script content</td></tr>
+          <tr><td><code>--ipv6</code></td><td><code>false</code></td><td>Enable IPv6</td></tr>
+          <tr><td><code>--backups</code></td><td><code>false</code></td><td>Enable automatic backups</td></tr>
+          <tr><td><code>--wait</code>, <code>-w</code></td><td><code>false</code></td><td>Wait until active, print IP(s)</td></tr>
+        </tbody>
+      </table>
+
+      <!-- delete -->
+      <h3 id="droplet-delete">Delete</h3>
+
+      <div class="terminal">
+        <div class="terminal-header">
+          <div class="dot-row"><span class="d-red"></span><span class="d-yellow"></span><span class="d-green"></span></div>
+          <span class="terminal-label">destroy</span>
+        </div>
+        <div class="terminal-body">
+<span class="prompt">$ </span><span class="cmd">do-manager droplet delete <span class="value">123456789</span></span>
+<span class="warn">! Delete Droplet 123456789? This is irreversible. [y/N]: </span><span class="out">y</span>
+<span class="ok">✓ Droplet 123456789 deleted.</span>
+
+<span class="prompt">$ </span><span class="cmd">do-manager droplet delete <span class="value">111 222 333 444 555</span></span>
+<span class="out">  </span><span class="ok">✓ ID=111    deleted</span>
+<span class="out">  </span><span class="ok">✓ ID=222    deleted</span>
+<span class="out">  </span><span class="ok">✓ ID=333    deleted</span>
+<span class="out">  </span><span class="ok">✓ ID=444    deleted</span>
+<span class="out">  </span><span class="ok">✓ ID=555    deleted</span>
+
+<span class="prompt">$ </span><span class="cmd">do-manager droplet delete <span class="flag">--tag</span> <span class="value">lab</span> <span class="flag">--force</span></span>
+<span class="ok">✓ All Droplets with tag lab deleted.</span>
+        </div>
+      </div>
+
+      <!-- power -->
+      <h3 id="droplet-power">Power</h3>
+      <div class="terminal">
+        <div class="terminal-header">
+          <div class="dot-row"><span class="d-red"></span><span class="d-yellow"></span><span class="d-green"></span></div>
+          <span class="terminal-label">power actions</span>
+        </div>
+        <div class="terminal-body">
+<span class="prompt">$ </span><span class="cmd">do-manager droplet power on     <span class="value">123456789</span></span>
+<span class="prompt">$ </span><span class="cmd">do-manager droplet power off    <span class="value">123456789</span></span>
+<span class="prompt">$ </span><span class="cmd">do-manager droplet power reboot <span class="value">123456789</span></span>
+        </div>
+      </div>
+    </section>
+
+    <hr />
+
+    <!-- SSH KEYS -->
+    <section id="ssh-keys">
+      <h2>SSH Keys</h2>
+
+      <div class="terminal">
+        <div class="terminal-header">
+          <div class="dot-row"><span class="d-red"></span><span class="d-yellow"></span><span class="d-green"></span></div>
+          <span class="terminal-label">ssh-key commands</span>
+        </div>
+        <div class="terminal-body">
+<span class="out"># List all keys</span>
+<span class="prompt">$ </span><span class="cmd">do-manager ssh-key list</span>
+
+<span class="out"># Add from a file</span>
+<span class="prompt">$ </span><span class="cmd">do-manager ssh-key add <span class="flag">--name</span> <span class="value">homelab</span> <span class="flag">--file</span> <span class="value">~/.ssh/id_ed25519.pub</span></span>
+<span class="ok">✓ SSH key added  ID=42000001  Fingerprint=xx:xx:xx:...</span>
+
+<span class="out"># Add inline</span>
+<span class="prompt">$ </span><span class="cmd">do-manager ssh-key add <span class="flag">--name</span> <span class="value">ci</span> <span class="flag">--public-key</span> <span class="value">"ssh-ed25519 AAAA..."</span></span>
+
+<span class="out"># Inspect</span>
+<span class="prompt">$ </span><span class="cmd">do-manager ssh-key get <span class="value">xx:xx:xx:...</span></span>
+
+<span class="out"># Delete</span>
+<span class="prompt">$ </span><span class="cmd">do-manager ssh-key delete <span class="value">xx:xx:xx:...</span></span>
+        </div>
+      </div>
+    </section>
+
+    <hr />
+
+    <!-- RESOURCES -->
+    <section id="resources">
+      <h2>Regions, Sizes &amp; Images</h2>
+
+      <div class="terminal">
+        <div class="terminal-header">
+          <div class="dot-row"><span class="d-red"></span><span class="d-yellow"></span><span class="d-green"></span></div>
+          <span class="terminal-label">resource discovery</span>
+        </div>
+        <div class="terminal-body">
+<span class="out"># All regions with availability</span>
+<span class="prompt">$ </span><span class="cmd">do-manager region list</span>
+
+<span class="out"># All size slugs with specs and pricing</span>
+<span class="prompt">$ </span><span class="cmd">do-manager size list</span>
+
+<span class="out"># Distribution images (default)</span>
+<span class="prompt">$ </span><span class="cmd">do-manager image list</span>
+
+<span class="out"># Application images</span>
+<span class="prompt">$ </span><span class="cmd">do-manager image list <span class="flag">--type</span> <span class="value">application</span></span>
+
+<span class="out"># All images</span>
+<span class="prompt">$ </span><span class="cmd">do-manager image list <span class="flag">--type</span> <span class="value">""</span></span>
+        </div>
+      </div>
+    </section>
+
+    <hr />
+
+    <!-- LIBRARY -->
+    <section id="library">
+      <h2>Library Usage</h2>
+      <p>
+        The <code>pkg/</code> packages are designed to be imported independently of the CLI.
+        Each package is stateless and accepts a <code>context.Context</code> for deadline and cancellation propagation.
+      </p>
+
+      <div class="terminal">
+        <div class="terminal-header">
+          <div class="dot-row"><span class="d-red"></span><span class="d-yellow"></span><span class="d-green"></span></div>
+          <span class="terminal-label">Go</span>
+        </div>
+        <div class="terminal-body">
+<span class="out">import (
+    "context"
+    "os"
+
+    "github.com/franckferman/do-manager/pkg/client"
+    "github.com/franckferman/do-manager/pkg/droplet"
+    "github.com/franckferman/do-manager/pkg/sshkey"
+    "github.com/franckferman/do-manager/pkg/region"
+)
+
+func main() {
+    // Authenticated client
+    c, err := client.New(os.Getenv("DO_TOKEN"))
+
+    ctx := context.Background()
+
+    // -- Droplets --
+    svc := droplet.New(c)
+
+    list, _  := svc.List(ctx)
+    d, _     := svc.Get(ctx, 123456789)
+    _, _     = svc.Create(ctx, droplet.CreateOptions{
+        Name:   "worker-01",
+        Region: "fra1",
+        Size:   "s-1vcpu-1gb",
+        Image:  "ubuntu-22-04-x64",
+    })
+
+    // Batch: 5 Droplets in parallel
+    results := svc.CreateBatch(ctx, opts, 5)
+
+    // Destroy in parallel
+    errs := svc.DeleteMany(ctx, []int{111, 222, 333})
+
+    // Destroy by tag (single API call)
+    svc.DeleteByTag(ctx, "lab")
+
+    // -- SSH Keys --
+    keySvc := sshkey.New(c)
+    keys, _ := keySvc.List(ctx)
+
+    // -- Resources --
+    regSvc  := region.New(c)
+    regions, _ := regSvc.ListRegions(ctx)
+    sizes,   _ := regSvc.ListSizes(ctx)
+    images,  _ := regSvc.ListImages(ctx, "distribution")
+}</span>
+        </div>
+      </div>
+
+      <div class="callout">
+        The <code>pkg/</code> packages have no dependency on Cobra, Viper, or any other CLI framework.
+        They only require <code>godo</code> and the standard library.
+      </div>
+    </section>
+
+    <hr />
+
+    <!-- ARCHITECTURE -->
+    <section id="architecture">
+      <h2>Architecture</h2>
+      <div class="terminal">
+        <div class="terminal-header">
+          <div class="dot-row"><span class="d-red"></span><span class="d-yellow"></span><span class="d-green"></span></div>
+          <span class="terminal-label">project structure</span>
+        </div>
+        <div class="terminal-body">
+<span class="ok">do-manager/</span>
+<span class="out">├── main.go                     entrypoint</span>
+<span class="out">├── go.mod</span>
+<span class="out">│</span>
+<span class="cyan">├── cmd/                        CLI layer (Cobra) - not imported externally</span>
+<span class="out">│   ├── root.go                 root command, config init, banner</span>
+<span class="out">│   ├── version.go</span>
+<span class="out">│   ├── droplet.go              list / get / create / delete / power</span>
+<span class="out">│   ├── sshkey.go               list / get / add / delete</span>
+<span class="out">│   └── region.go               regions / sizes / images</span>
+<span class="out">│</span>
+<span class="cyan">├── internal/</span>
+<span class="out">│   └── config/config.go        token resolution + validation</span>
+<span class="out">│</span>
+<span class="cyan">└── pkg/                        importable library packages</span>
+<span class="out">    ├── client/client.go        authenticated godo.Client factory</span>
+<span class="out">    ├── droplet/droplet.go      Droplet CRUD, batch ops, power actions</span>
+<span class="out">    ├── sshkey/sshkey.go        SSH key management</span>
+<span class="out">    └── region/region.go        Regions, Sizes, Images</span>
+        </div>
+      </div>
+
+      <table class="ref-table">
+        <thead><tr><th>Package</th><th>Responsibility</th><th>External deps</th></tr></thead>
+        <tbody>
+          <tr><td><code>pkg/client</code></td><td>Build an authenticated <code>*godo.Client</code></td><td>godo, oauth2</td></tr>
+          <tr><td><code>pkg/droplet</code></td><td>Droplet CRUD, batch create/delete, power</td><td>godo</td></tr>
+          <tr><td><code>pkg/sshkey</code></td><td>SSH key CRUD</td><td>godo</td></tr>
+          <tr><td><code>pkg/region</code></td><td>List regions, sizes, images</td><td>godo</td></tr>
+          <tr><td><code>internal/config</code></td><td>Token resolution (flag &gt; env &gt; file)</td><td>viper</td></tr>
+          <tr><td><code>cmd/</code></td><td>CLI interface</td><td>cobra, color, tablewriter</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <hr />
+
+    <!-- ROADMAP -->
+    <section id="roadmap">
+      <h2>Roadmap</h2>
+      <ul>
+        <li>&#x2610; <code>--output json</code> for machine-readable output</li>
+        <li>&#x2610; <code>droplet ssh &lt;id&gt;</code> shortcut</li>
+        <li>&#x2610; VPC and Firewall management</li>
+        <li>&#x2610; Volumes and Snapshots</li>
+        <li>&#x2610; Config profile switching (<code>--profile prod</code>)</li>
+        <li>&#x2610; Web-based dashboard</li>
+      </ul>
+    </section>
+
+  </main>
+</div>
+
+<footer>
+  <p>
+    <strong style="color:var(--white)">do-manager</strong> &nbsp;|&nbsp;
+    <a href="https://github.com/franckferman/do-manager">GitHub</a> &nbsp;|&nbsp;
+    <a href="https://github.com/franckferman/do-manager/blob/stable/LICENSE">AGPL-3.0</a> &nbsp;|&nbsp;
+    Built with <a href="https://github.com/digitalocean/godo">godo</a>
+  </p>
+  <p style="margin-top:0.4rem; color:var(--text-dim)">Franck Ferman</p>
+</footer>
+
+</body>
+</html>
