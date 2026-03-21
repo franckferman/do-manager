@@ -112,6 +112,10 @@ func runRegionList(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	if isJSON() {
+		return printJSON(regions)
+	}
+
 	fmt.Printf("\n%s  %d region(s)\n\n", color.CyanString(">>"), len(regions))
 
 	table := tablewriter.NewWriter(os.Stdout)
@@ -143,6 +147,10 @@ func runSizeList(cmd *cobra.Command, args []string) error {
 	sizes, err := svc.ListSizes(ctx)
 	if err != nil {
 		return err
+	}
+
+	if isJSON() {
+		return printJSON(sizes)
 	}
 
 	fmt.Printf("\n%s  %d size(s)\n\n", color.CyanString(">>"), len(sizes))
@@ -185,6 +193,10 @@ func runImageList(cmd *cobra.Command, args []string) error {
 	images, err := svc.ListImages(ctx, imageTypeFilter)
 	if err != nil {
 		return err
+	}
+
+	if isJSON() {
+		return printJSON(images)
 	}
 
 	typeLabel := imageTypeFilter

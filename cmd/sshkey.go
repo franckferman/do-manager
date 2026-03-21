@@ -111,6 +111,10 @@ func runSSHKeyList(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	if isJSON() {
+		return printJSON(keys)
+	}
+
 	if len(keys) == 0 {
 		fmt.Println(color.YellowString("No SSH keys found."))
 		return nil
@@ -152,6 +156,10 @@ func runSSHKeyGet(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	if isJSON() {
+		return printJSON(k)
+	}
+
 	label := color.CyanString
 	fmt.Printf("\n%s SSH Key %s\n\n", color.CyanString(">>"), color.WhiteString(k.Name))
 	fmt.Printf("  %-16s %d\n", label("ID:"), k.ID)
@@ -187,6 +195,9 @@ func runSSHKeyAdd(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	if isJSON() {
+		return printJSON(k)
+	}
 	fmt.Printf("%s SSH key added  ID=%d  Fingerprint=%s\n",
 		color.GreenString("✓"),
 		k.ID,

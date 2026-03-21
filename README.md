@@ -11,7 +11,7 @@
 
 **A modular Go CLI and library for managing DigitalOcean infrastructure.**
 
-[![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat-square&logo=go)](https://go.dev)
+[![Go Version](https://img.shields.io/badge/Go-1.23+-00ADD8?style=flat-square&logo=go)](https://go.dev)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-blue?style=flat-square&label=license&message=GNU+Affero+v3)](LICENSE)
 [![DigitalOcean API](https://img.shields.io/badge/API-DigitalOcean_v2-0080ff?style=flat-square&logo=digitalocean)](https://docs.digitalocean.com/reference/api/)
 
@@ -134,7 +134,7 @@ do-manager/
 
 ## Installation
 
-**Prerequisites:** Go 1.21+
+**Prerequisites:** Go 1.23+
 
 ```bash
 git clone https://github.com/franckferman/do-manager.git

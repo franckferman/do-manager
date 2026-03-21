@@ -239,6 +239,11 @@ func runDropletList(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+
+	if isJSON() {
+		return printJSON(droplets)
+	}
+
 	if len(droplets) == 0 {
 		fmt.Println(color.YellowString("No Droplets found."))
 		return nil
@@ -271,6 +276,10 @@ func runDropletGet(cmd *cobra.Command, args []string) error {
 
 	ipv4 := droplet.PublicIPv4(d)
 	ipv6 := droplet.PublicIPv6(d)
+
+	if isJSON() {
+		return printJSON(d)
+	}
 
 	label := color.CyanString
 	fmt.Printf("\n%s Droplet %s\n\n", color.CyanString(">>"), color.WhiteString(d.Name))
@@ -314,24 +323,28 @@ func runDropletCreate(cmd *cobra.Command, args []string) error {
 	}
 
 	if createCount == 1 {
-		// Single droplet path (unchanged behaviour)
+		// Single droplet path
 		ctx, cancel := context.WithTimeout(context.Background(), createSingle)
 		defer cancel()
 
-		fmt.Printf("%s Creating %s  [region=%s  size=%s  image=%s]\n",
-			color.CyanString(">>"), color.WhiteString(createName),
-			createRegion, createSize, createImage,
-		)
+		if !isJSON() {
+			fmt.Printf("%s Creating %s  [region=%s  size=%s  image=%s]\n",
+				color.CyanString(">>"), color.WhiteString(createName),
+				createRegion, createSize, createImage,
+			)
+		}
 
 		d, err := svc.Create(ctx, opts)
 		if err != nil {
 			return err
 		}
-		fmt.Printf("%s Droplet created  ID=%s  status=%s\n",
-			color.GreenString("✓"), color.WhiteString(strconv.Itoa(d.ID)), statusColor(d.Status),
-		)
+
 		if createWait {
-			fmt.Printf("%s Waiting for active state", color.YellowString("~"))
+			if !isJSON() {
+				fmt.Printf("%s Waiting for active state", color.YellowString("~"))
+			} else {
+				fmt.Fprintf(os.Stderr, "Waiting for active state")
+			}
 			if err := waitForActive(svc, d.ID); err != nil {
 				return err
 			}
@@ -341,10 +354,21 @@ func runDropletCreate(cmd *cobra.Command, args []string) error {
 			if err != nil {
 				return err
 			}
-			fmt.Printf("\n%s Active  IPv4=%s\n",
-				color.GreenString("✓"), color.WhiteString(droplet.PublicIPv4(d)),
-			)
+			if !isJSON() {
+				fmt.Printf("\n%s Active  IPv4=%s\n",
+					color.GreenString("✓"), color.WhiteString(droplet.PublicIPv4(d)),
+				)
+			} else {
+				fmt.Fprintln(os.Stderr)
+			}
 		}
+
+		if isJSON() {
+			return printJSON(d)
+		}
+		fmt.Printf("%s Droplet created  ID=%s  status=%s\n",
+			color.GreenString("✓"), color.WhiteString(strconv.Itoa(d.ID)), statusColor(d.Status),
+		)
 		return nil
 	}
 
@@ -512,7 +536,11 @@ func waitForActive(svc *droplet.Service, id int) error {
 			if d.Status == "active" {
 				return nil
 			}
-			fmt.Print(".")
+			if isJSON() {
+				fmt.Fprint(os.Stderr, ".")
+			} else {
+				fmt.Print(".")
+			}
 		}
 	}
 }
