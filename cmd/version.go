@@ -6,14 +6,26 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Version is the current release of do-manager.
-const Version = "0.1.0"
+// These variables are overridden at build time via -ldflags.
+var (
+	Version   = "dev"
+	Commit    = "none"
+	BuildDate = "unknown"
+)
 
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print do-manager version",
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("do-manager v%s\n", Version)
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if isJSON() {
+			return printJSON(map[string]string{
+				"version":    Version,
+				"commit":     Commit,
+				"build_date": BuildDate,
+			})
+		}
+		fmt.Printf("do-manager %s  (commit=%s  built=%s)\n", Version, Commit, BuildDate)
+		return nil
 	},
 }
 

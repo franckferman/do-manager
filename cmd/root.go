@@ -39,6 +39,8 @@ func init() {
 	rootCmd.PersistentFlags().String("token", "", "DigitalOcean API token (overrides DO_TOKEN env var)")
 	viper.BindPFlag("token", rootCmd.PersistentFlags().Lookup("token")) //nolint:errcheck
 
+	rootCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "", "Output format: table (default) | json")
+
 	// Suppress usage on subcommand errors (cleaner output).
 	rootCmd.SilenceUsage = true
 }
