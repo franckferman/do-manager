@@ -12,7 +12,7 @@
 **A modular Go CLI and library for managing DigitalOcean infrastructure.**
 
 [![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat-square&logo=go)](https://go.dev)
-[![License](https://img.shields.io/badge/license-AGPL--3.0-blue?style=flat-square)](LICENSE)
+[![License](https://img.shields.io/badge/license-AGPL--3.0-blue?style=flat-square&label=license&message=GNU+Affero+v3)](LICENSE)
 [![DigitalOcean API](https://img.shields.io/badge/API-DigitalOcean_v2-0080ff?style=flat-square&logo=digitalocean)](https://docs.digitalocean.com/reference/api/)
 
 </div>
@@ -433,4 +433,6 @@ Each package is stateless and takes a `context.Context` on every call, making it
 
 ## License
 
-[AGPL-3.0](LICENSE) - Franck Ferman
+This project is licensed under the [GNU Affero General Public License v3.0](LICENSE) (AGPL-3.0).
+
+Any use, modification, or distribution — including over a network — requires the full source code to remain open under the same license.
