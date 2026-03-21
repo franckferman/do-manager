@@ -457,6 +457,7 @@
 <nav>
   <span class="nav-brand">do-manager</span>
   <ul class="nav-links">
+    <li><a href="#why">Why?</a></li>
     <li><a href="#install">Install</a></li>
     <li><a href="#config">Config</a></li>
     <li><a href="#droplets">Droplets</a></li>
@@ -474,6 +475,7 @@
   <aside>
     <div class="sidebar-section">
       <div class="sidebar-title">Getting Started</div>
+      <a class="sidebar-link" href="#why">Why do-manager?</a>
       <a class="sidebar-link" href="#install">Installation</a>
       <a class="sidebar-link" href="#config">Configuration</a>
     </div>
@@ -555,6 +557,102 @@
           <h3>No doctl needed</h3>
           <p>Direct API calls via godo. No external binary, no subprocess parsing, no version mismatch.</p>
         </div>
+      </div>
+    </section>
+
+    <hr />
+
+    <!-- WHY -->
+    <section id="why">
+      <h2>Why do-manager?</h2>
+      <p>Several tools already exist to manage DigitalOcean infrastructure. Here is where <code>do-manager</code> fits.</p>
+
+      <table class="ref-table">
+        <thead>
+          <tr>
+            <th></th>
+            <th>doctl</th>
+            <th>Terraform / Pulumi</th>
+            <th>do-manager</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Type</strong></td>
+            <td>CLI binary</td>
+            <td>Infrastructure-as-Code</td>
+            <td>CLI + Go library</td>
+          </tr>
+          <tr>
+            <td><strong>Importable as Go lib</strong></td>
+            <td><span style="color:var(--red)">No</span></td>
+            <td><span style="color:var(--red)">No</span></td>
+            <td><span style="color:var(--green)">Yes</span></td>
+          </tr>
+          <tr>
+            <td><strong>Requires external binary</strong></td>
+            <td><span style="color:var(--red)">Yes (doctl)</span></td>
+            <td><span style="color:var(--red)">Yes (terraform/pulumi)</span></td>
+            <td><span style="color:var(--green)">No</span></td>
+          </tr>
+          <tr>
+            <td><strong>State management</strong></td>
+            <td>No</td>
+            <td><span style="color:var(--yellow)">Yes (statefile)</span></td>
+            <td>No</td>
+          </tr>
+          <tr>
+            <td><strong>Parallel batch ops</strong></td>
+            <td><span style="color:var(--red)">No</span></td>
+            <td>Partial</td>
+            <td><span style="color:var(--green)">Yes</span></td>
+          </tr>
+          <tr>
+            <td><strong>Embed in a Go project</strong></td>
+            <td><span style="color:var(--red)">Subprocess + parsing</span></td>
+            <td>SDK only</td>
+            <td><span style="color:var(--green)"><code>import "pkg/droplet"</code></span></td>
+          </tr>
+          <tr>
+            <td><strong>Learning curve</strong></td>
+            <td>Low</td>
+            <td>High (HCL / SDK)</td>
+            <td>Low</td>
+          </tr>
+          <tr>
+            <td><strong>API coverage</strong></td>
+            <td>Full DO API</td>
+            <td>Full DO API</td>
+            <td>Focused (Droplets, keys, regions)</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>vs doctl</h3>
+      <p>
+        <a href="https://github.com/digitalocean/doctl">doctl</a> is the official DigitalOcean CLI.
+        It covers the entire API surface and is the right tool for manual operations from the terminal.
+      </p>
+      <p>
+        <code>do-manager</code> targets a different use case: <strong style="color:var(--white)">embedding cloud provisioning inside another Go program</strong>.
+        Instead of shelling out to <code>doctl</code> and parsing its output, you import <code>pkg/droplet</code>
+        and call typed Go functions directly. No binary dependency, no version mismatch, no fragile string parsing.
+      </p>
+
+      <h3>vs Terraform / Pulumi</h3>
+      <p>
+        Terraform and Pulumi are full IaC platforms. They manage state, handle drift detection, and orchestrate dozens of providers.
+        That power comes with significant overhead: HCL or SDK boilerplate, a statefile to maintain, and a heavy binary to ship.
+      </p>
+      <p>
+        <code>do-manager</code> has no concept of state. It is a thin, focused layer over the DigitalOcean API
+        for programs that need to <strong style="color:var(--white)">provision and destroy Droplets programmatically</strong>
+        without pulling in an IaC framework.
+      </p>
+
+      <div class="callout">
+        <strong>The one-liner:</strong> use <code>doctl</code> when you work from the terminal.
+        Use <code>do-manager</code> when you build a Go tool that needs to manage Droplets.
       </div>
     </section>
 

@@ -22,6 +22,7 @@
 ## Table of Contents
 
 - [Overview](#overview)
+- [Why do-manager?](#why-do-manager)
 - [Features](#features)
 - [Project Structure](#project-structure)
 - [Installation](#installation)
@@ -45,6 +46,39 @@
 - A **Go library** (`pkg/`) that can be imported by other projects to programmatically manage cloud resources.
 
 Unlike a wrapper around `doctl`, `do-manager` talks directly to the DigitalOcean API via `godo`. This means no dependency on an external binary, proper Go types throughout, and full composability.
+
+---
+
+## Why do-manager?
+
+Several tools already exist to interact with DigitalOcean. Here is where `do-manager` fits:
+
+| | doctl | Terraform / Pulumi | do-manager |
+|---|---|---|---|
+| **Type** | CLI binary | Infrastructure-as-Code | CLI + Go library |
+| **Importable as Go lib** | No | No | **Yes** |
+| **Requires external binary** | Yes (doctl installed) | Yes (terraform/pulumi) | No |
+| **State management** | No | Yes (statefile) | No |
+| **Parallel batch ops** | No | Partial | **Yes** |
+| **API coverage** | Full DO API | Full DO API | Focused (Droplets, keys, regions) |
+| **Learning curve** | Low | High (HCL / SDK) | Low |
+| **Embed in another Go project** | Subprocess + parsing | SDK only | `import "pkg/droplet"` |
+
+### vs doctl
+
+`doctl` is the official DigitalOcean CLI. It covers the entire API surface and is the right tool for manual operations from the terminal.
+
+`do-manager` targets a different use case: **embedding cloud provisioning inside another Go program**. Instead of shelling out to `doctl` and parsing its output, you import `pkg/droplet` and call typed Go functions directly. No binary dependency, no version mismatch, no fragile string parsing.
+
+### vs Terraform / Pulumi
+
+Terraform and Pulumi are full infrastructure-as-code platforms. They manage state, handle drift detection, and orchestrate dozens of providers. That power comes with significant overhead: HCL or SDK boilerplate, a statefile to manage, and a heavy binary to ship.
+
+`do-manager` has no concept of state. It is a thin, focused layer over the DigitalOcean API for programs that need to **provision and destroy Droplets programmatically** without pulling in an IaC framework.
+
+### The one-liner
+
+> Use `doctl` when you work from the terminal. Use `do-manager` when you build a Go tool that needs to manage Droplets.
 
 ---
 
