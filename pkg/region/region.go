@@ -66,18 +66,32 @@ func (s *Service) ListSizes(ctx context.Context) ([]godo.Size, error) {
 	return all, nil
 }
 
-// ListImages returns available images, optionally filtered by type
-// (e.g. "distribution", "application", "user"). Pass "" for all.
+// ListImages returns available images filtered by type.
+// Accepted values: "distribution", "application", "user", "" (all public images).
 func (s *Service) ListImages(ctx context.Context, imageType string) ([]godo.Image, error) {
+	// godo v1.109+ exposes dedicated list methods per image type
+	// rather than a generic ImageListOptions struct.
+	type listFn func(context.Context, *godo.ListOptions) ([]godo.Image, *godo.Response, error)
+
+	var fn listFn
+	switch imageType {
+	case "distribution":
+		fn = s.client.Images.ListDistribution
+	case "application":
+		fn = s.client.Images.ListApplication
+	case "user":
+		fn = s.client.Images.ListUser
+	default:
+		fn = s.client.Images.List
+	}
+
 	var all []godo.Image
-	opts := &godo.ImageListOptions{}
-	opts.Type = imageType
-	opts.PerPage = 200
+	opts := &godo.ListOptions{PerPage: 200}
 
 	for {
-		images, resp, err := s.client.Images.List(ctx, opts)
+		images, resp, err := fn(ctx, opts)
 		if err != nil {
-			return nil, fmt.Errorf("list images: %w", err)
+			return nil, fmt.Errorf("list images (%s): %w", imageType, err)
 		}
 		all = append(all, images...)
 		if resp.Links == nil || resp.Links.IsLastPage() {
