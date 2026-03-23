@@ -1,0 +1,19 @@
+# Binaries
+do-manager
+do-manager.exe
+dist/
+
+# Env / config
+.env
+.env.local
+.do-manager.yaml
+
+# Go
+*.test
+*.out
+vendor/
+
+# IDE
+.idea/
+.vscode/
+*.swp

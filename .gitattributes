@@ -1,0 +1,5 @@
+# Tell GitHub Linguist not to count the docs site in language stats
+docs/index.html linguist-documentation=true
+
+# Treat shell templates as non-code for stats (they inflate Shell %)
+pkg/tmpl/scripts/*.sh linguist-vendored=true
