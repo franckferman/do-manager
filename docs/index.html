@@ -1,0 +1,2437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>do-manager — DigitalOcean CLI &amp; Go library</title>
+  <meta name="description" content="CLI and Go library for DigitalOcean. Manage Droplets, DNS, VPCs, firewalls, snapshots. Campaign orchestration, IP rotation, firewall presets, cloud-init templates for Red Team ops." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <style>
+    /* =========================================================== TOKENS */
+    :root {
+      --bg:           #070b12;
+      --bg-card:      #0d1320;
+      --bg-raised:    #111827;
+      --bg-code:      #0a1020;
+      --border:       #1c2b3a;
+      --border-bright:#243447;
+      --text:         #9ab0c8;
+      --text-dim:     #4a6278;
+      --text-bright:  #e2eaf6;
+      --blue:         #3d8ef8;
+      --blue-dim:     #0d2856;
+      --cyan:         #22d3ee;
+      --cyan-dim:     #073545;
+      --green:        #22c55e;
+      --red:          #f87171;
+      --yellow:       #fbbf24;
+      --purple:       #a78bfa;
+      --radius:       10px;
+      --radius-sm:    6px;
+      --mono: 'JetBrains Mono','Cascadia Code','Fira Code',ui-monospace,'SFMono-Regular',Consolas,monospace;
+      --sans: -apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; scroll-padding-top: 72px; }
+
+    body {
+      background: var(--bg);
+      background-image: radial-gradient(rgba(255,255,255,.04) 1px, transparent 1px);
+      background-size: 28px 28px;
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 15px;
+      line-height: 1.65;
+    }
+
+    a { color: var(--blue); text-decoration: none; }
+    a:hover { color: var(--cyan); }
+
+    /* ============================================================== NAV */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 200;
+      height: 60px;
+      background: rgba(7,11,18,.88);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 1.5rem;
+      gap: 2rem;
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--text-bright);
+      font-family: var(--mono);
+      font-weight: 700;
+      font-size: .95rem;
+      letter-spacing: -.3px;
+      flex-shrink: 0;
+    }
+    .nav-logo:hover { color: var(--text-bright); }
+
+    .logo-prompt { color: var(--blue); margin-right: 2px; letter-spacing: -.05em; }
+    .logo-do   { color: var(--blue); }
+    .logo-dash { color: var(--text-dim); }
+    .logo-mgr  { color: var(--text-bright); }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: .25rem;
+      list-style: none;
+      flex: 1;
+    }
+
+    .nav-links a {
+      color: var(--text-dim);
+      font-size: .85rem;
+      padding: .3rem .65rem;
+      border-radius: var(--radius-sm);
+      transition: color .15s, background .15s;
+    }
+    .nav-links a:hover {
+      color: var(--text-bright);
+      background: rgba(255,255,255,.04);
+    }
+
+    .nav-right {
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+      margin-left: auto;
+    }
+
+    .nav-gh {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255,255,255,.05);
+      border: 1px solid var(--border-bright);
+      border-radius: var(--radius-sm);
+      padding: .3rem .75rem;
+      color: var(--text);
+      font-size: .8rem;
+      font-family: var(--mono);
+      transition: all .15s;
+    }
+    .nav-gh:hover {
+      background: rgba(255,255,255,.09);
+      color: var(--text-bright);
+      border-color: var(--blue);
+    }
+
+    .nav-ver {
+      background: var(--blue-dim);
+      border: 1px solid rgba(61,142,248,.3);
+      border-radius: 20px;
+      color: var(--blue);
+      font-family: var(--mono);
+      font-size: .7rem;
+      padding: 2px 9px;
+    }
+
+    .hamburger {
+      display: none;
+      flex-direction: column;
+      gap: 5px;
+      cursor: pointer;
+      padding: 4px;
+      background: none;
+      border: none;
+      margin-left: auto;
+    }
+    .hamburger span {
+      display: block;
+      width: 22px;
+      height: 2px;
+      background: var(--text);
+      border-radius: 2px;
+      transition: all .25s;
+    }
+
+    /* ============================================================= HERO */
+    .hero {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 3.5rem 2rem 3rem;
+      display: grid;
+      grid-template-columns: 1fr 1.4fr;
+      gap: 3rem;
+      align-items: center;
+    }
+
+    @keyframes pulse {
+      0%,100% { opacity: 1; }
+      50% { opacity: .3; }
+    }
+
+    .hero-kicker {
+      font-family: var(--mono);
+      font-size: .75rem;
+      color: var(--blue);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+    }
+    .hero-kicker::before {
+      content: '';
+      display: inline-block;
+      width: 18px;
+      height: 1px;
+      background: var(--blue);
+    }
+
+    .hero-title {
+      font-size: clamp(2rem, 4.5vw, 3rem);
+      font-family: var(--mono);
+      font-weight: 800;
+      color: var(--text-bright);
+      line-height: 1.1;
+      letter-spacing: -.04em;
+      margin-bottom: 1.25rem;
+    }
+
+    .hero-sub {
+      font-size: 1rem;
+      color: var(--text);
+      max-width: 480px;
+      margin-bottom: 1.75rem;
+      line-height: 1.7;
+    }
+
+    .hero-cta {
+      display: flex;
+      gap: .75rem;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: .55rem 1.25rem;
+      border-radius: var(--radius-sm);
+      font-size: .875rem;
+      font-weight: 500;
+      transition: all .15s;
+      cursor: pointer;
+      border: none;
+    }
+    .btn-primary {
+      background: var(--blue);
+      color: #fff;
+    }
+    .btn-primary:hover {
+      background: #5da1ff;
+      color: #fff;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(61,142,248,.35);
+    }
+    .btn-ghost {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border-bright);
+    }
+    .btn-ghost:hover {
+      background: var(--bg-card);
+      color: var(--text-bright);
+      border-color: var(--border-bright);
+      transform: translateY(-1px);
+    }
+
+    /* ======================================================= HERO TERMINAL */
+    .hero-terminal-wrap {
+      position: relative;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+
+    .terminal {
+      background: var(--bg-code);
+      border: 1px solid rgba(255,255,255,.07);
+      border-top: 1px solid rgba(255,255,255,.12);
+      border-radius: var(--radius);
+      overflow: hidden;
+      position: relative;
+      box-shadow:
+        0 0 0 1px rgba(0,0,0,.4),
+        0 32px 80px rgba(0,0,0,.8),
+        0 8px 24px rgba(0,0,0,.5),
+        0 0 60px rgba(61,142,248,.08),
+        inset 0 1px 0 rgba(255,255,255,.05);
+    }
+
+    .terminal-bar {
+      background: linear-gradient(180deg, #131e2e 0%, #0d1825 100%);
+      border-bottom: 1px solid rgba(0,0,0,.4);
+      padding: .6rem 1rem;
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+      user-select: none;
+    }
+
+    .tl {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      box-shadow: inset 0 -1px 1px rgba(0,0,0,.3);
+    }
+    .tl-r { background: #ff5f57; }
+    .tl-y { background: #febc2e; }
+    .tl-g { background: #28c840; }
+
+    .terminal-title {
+      font-family: var(--mono);
+      font-size: .68rem;
+      color: #3d5468;
+      margin: 0 auto;
+      letter-spacing: .4px;
+    }
+
+    .copy-btn {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: none;
+      border: 1px solid transparent;
+      border-radius: 4px;
+      color: var(--text-dim);
+      font-size: .7rem;
+      font-family: var(--mono);
+      padding: 2px 6px;
+      cursor: pointer;
+      transition: all .15s;
+      margin-left: auto;
+    }
+    .copy-btn:hover {
+      background: var(--bg-raised);
+      border-color: var(--border);
+      color: var(--text);
+    }
+    .copy-btn.copied {
+      color: var(--green);
+      border-color: rgba(34,197,94,.3);
+    }
+
+    .terminal-body {
+      padding: 1.1rem 1.4rem;
+      overflow-x: auto;
+      font-family: var(--mono);
+      font-size: .8rem;
+      line-height: 1.8;
+      white-space: pre;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .p  { color: #2dd4bf; user-select: none; }  /* teal prompt $ */
+    .c  { color: #f0f6ff; }                      /* command text */
+    .fl { color: #7dd3fc; }                      /* flags */
+    .vl { color: #a5c8ff; }                      /* values */
+    .o  { color: var(--text); }
+    .ok { color: #4ade80; }                      /* success */
+    .wn { color: var(--yellow); }
+    .er { color: var(--red); }
+    .hd { color: #22d3ee; font-weight: 700; }    /* headers */
+    .dm { color: #3d5468; }                      /* comments/dim */
+
+    .cursor {
+      display: inline-block;
+      width: .55em;
+      height: 1.05em;
+      background: #2dd4bf;
+      vertical-align: middle;
+      border-radius: 1px;
+      box-shadow: 0 0 8px rgba(45,212,191,.6);
+      animation: blink .9s step-end infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+    /* ============================================================ STATS STRIP */
+    .stats-strip {
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-card);
+      padding: .6rem 2rem;
+      display: flex;
+      justify-content: center;
+      gap: 1.5rem;
+      font-family: var(--mono);
+      font-size: .72rem;
+      color: var(--text-dim);
+      flex-wrap: wrap;
+    }
+    .stats-strip strong { color: var(--text-bright); }
+    .stats-sep { color: var(--border-bright); }
+
+    /* ======================================================== CONTENT LAYOUT */
+    .content-wrap {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 210px 1fr;
+      gap: 0;
+      border-top: 1px solid var(--border);
+    }
+
+    /* ============================================================= SIDEBAR */
+    .sidebar {
+      position: sticky;
+      top: 60px;
+      height: calc(100vh - 60px);
+      overflow-y: auto;
+      padding: 1.75rem .75rem 2rem 0;
+      border-right: 1px solid var(--border);
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+
+    .sidebar-section { margin-bottom: 1.5rem; }
+
+    .sidebar-heading {
+      font-size: .68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-dim);
+      padding: 0 .75rem;
+      margin-bottom: .4rem;
+    }
+
+    .slink {
+      display: block;
+      padding: .28rem .75rem;
+      color: var(--text-dim);
+      font-size: .84rem;
+      border-radius: var(--radius-sm);
+      transition: all .15s;
+    }
+    .slink:hover {
+      background: var(--bg-card);
+      color: var(--text-bright);
+    }
+    .slink.active {
+      background: var(--blue-dim);
+      color: var(--blue);
+    }
+    .slink.sub {
+      padding-left: 1.4rem;
+      font-size: .78rem;
+    }
+
+    /* =============================================================== MAIN */
+    main {
+      padding: 3rem 3.5rem 6rem;
+      min-width: 0;
+    }
+
+    section { margin-bottom: 4.5rem; }
+
+    h2 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text-bright);
+      letter-spacing: -.03em;
+      border-left: 3px solid var(--blue);
+      padding-left: .75rem;
+      margin-bottom: 1.5rem;
+    }
+    h2.section-group-heading {
+      border-left-color: var(--red);
+      margin-top: 2.5rem;
+    }
+
+    h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-bright);
+      margin: 2rem 0 .6rem;
+    }
+
+    p { margin-bottom: .75rem; }
+
+    ul { padding-left: 1.3rem; margin-bottom: .75rem; }
+    ul li { margin-bottom: .2rem; }
+
+    code {
+      font-family: var(--mono);
+      font-size: .82em;
+      background: var(--bg-raised);
+      color: var(--cyan);
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+
+    /* ======================================================= USE CASE GRID */
+    .usecase-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      margin: 1.5rem 0 2rem;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .usecase-block {
+      background: var(--bg-card);
+      padding: 1.4rem 1.5rem 1.25rem;
+      border-top: 2px solid var(--border);
+      border-radius: var(--radius-sm);
+    }
+    .usecase-block:nth-child(1) { border-top-color: var(--blue); }
+    .usecase-block:nth-child(2) { border-top-color: var(--red); }
+    .usecase-block:nth-child(3) { border-top-color: var(--cyan); }
+
+    .usecase-label {
+      font-family: var(--mono);
+      font-size: .68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+    }
+    .usecase-label::before {
+      content: '';
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .lbl-infra  { color: var(--blue); }
+    .lbl-infra::before  { background: var(--blue); }
+    .lbl-rt     { color: var(--red); }
+    .lbl-rt::before     { background: var(--red); }
+    .lbl-lib    { color: var(--cyan); }
+    .lbl-lib::before    { background: var(--cyan); }
+
+    .usecase-cmds {
+      font-family: var(--mono);
+      font-size: .72rem;
+      line-height: 1.9;
+      color: var(--text-dim);
+      margin-bottom: 1rem;
+      border-left: 2px solid var(--border);
+      padding-left: .75rem;
+    }
+    .usecase-cmds .uc-prompt { color: var(--cyan); user-select: none; }
+    .usecase-cmds .uc-cmd    { color: var(--text-bright); }
+    .usecase-cmds .uc-arg    { color: #7dd3fc; }
+    .usecase-cmds .uc-code   { color: var(--text); }
+
+    .usecase-desc {
+      font-size: .78rem;
+      color: var(--text-dim);
+      line-height: 1.5;
+    }
+
+    @media (max-width: 900px) {
+      .usecase-grid { grid-template-columns: 1fr; }
+    }
+
+    /* =========================================================== COMPARE */
+    .compare-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .85rem;
+      margin: 1.25rem 0;
+    }
+
+    .compare-table th {
+      padding: .7rem .9rem;
+      text-align: left;
+      border-bottom: 2px solid var(--border);
+      color: var(--text-dim);
+      font-size: .72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+    }
+
+    .compare-table td {
+      padding: .6rem .9rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+
+    .compare-table tbody tr:last-child td { border-bottom: none; }
+    .compare-table tbody tr:hover td { background: rgba(255,255,255,.015); }
+
+    .compare-table th:last-child,
+    .compare-table td:last-child {
+      background: rgba(61,142,248,.04);
+      border-left: 1px solid rgba(61,142,248,.15);
+    }
+
+    .yes { color: var(--green); font-weight: 600; }
+    .no  { color: var(--red); }
+    .partial { color: var(--yellow); }
+    .highlight-col { color: var(--text-bright); }
+
+    /* ============================================================== TABS */
+    .tabs { margin: 1rem 0; }
+
+    .tab-nav {
+      display: flex;
+      gap: 2px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+      padding: 4px;
+      border-bottom: none;
+    }
+
+    .tab-btn {
+      padding: .35rem .9rem;
+      border: none;
+      border-radius: 4px;
+      background: none;
+      color: var(--text-dim);
+      font-family: var(--mono);
+      font-size: .78rem;
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .tab-btn.active {
+      background: var(--bg-code);
+      color: var(--text-bright);
+    }
+
+    .tab-pane { display: none; }
+    .tab-pane.active {
+      display: block;
+    }
+    .tab-pane .terminal {
+      border-radius: 0 0 var(--radius) var(--radius);
+    }
+
+    /* ============================================================== FLAGS */
+    .flags-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .84rem;
+      margin: 1rem 0;
+    }
+    .flags-table th {
+      text-align: left;
+      padding: .45rem .75rem;
+      border-bottom: 2px solid var(--border);
+      color: var(--text-dim);
+      font-size: .7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+    }
+    .flags-table td {
+      padding: .45rem .75rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    .flags-table tbody tr:last-child td { border-bottom: none; }
+    .flags-table tbody tr:hover td { background: rgba(255,255,255,.015); }
+    .tag-req {
+      font-family: var(--mono);
+      font-size: .65rem;
+      padding: 1px 5px;
+      border-radius: 3px;
+      background: rgba(248,113,113,.12);
+      color: var(--red);
+      border: 1px solid rgba(248,113,113,.3);
+      margin-left: 4px;
+      vertical-align: middle;
+    }
+
+    /* ============================================================ CALLOUT */
+    .callout {
+      background: rgba(61,142,248,.05);
+      border: 1px solid rgba(61,142,248,.2);
+      border-left: 3px solid var(--blue);
+      border-radius: var(--radius-sm);
+      padding: .75rem 1rem;
+      font-size: .875rem;
+      margin: 1rem 0;
+    }
+    .callout-tip {
+      background: rgba(34,197,94,.05);
+      border-color: rgba(34,197,94,.2);
+      border-left-color: var(--green);
+    }
+
+    hr { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
+
+    .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+    /* ============================================================ FOOTER */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 2.5rem 2rem;
+      text-align: center;
+      color: var(--text-dim);
+      font-size: .8rem;
+    }
+    footer a { color: var(--text-dim); }
+    footer a:hover { color: var(--blue); }
+    .footer-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: .75rem;
+    }
+
+    /* =========================================================== MOBILE NAV */
+    .mobile-menu {
+      display: none;
+      position: fixed;
+      top: 60px;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: var(--bg);
+      z-index: 199;
+      padding: 1.5rem;
+      overflow-y: auto;
+    }
+    .mobile-menu.open { display: block; }
+    .mobile-menu .slink { font-size: .95rem; padding: .5rem .75rem; }
+
+    /* ========================================================== RESPONSIVE */
+    @media (max-width: 900px) {
+      .hero {
+        grid-template-columns: 1fr;
+        padding: 3rem 1.5rem 2rem;
+      }
+      .hero-terminal-wrap { display: block; margin-top: 2rem; }
+      .content-wrap { grid-template-columns: 1fr; }
+      .sidebar { display: none; }
+      main { padding: 2rem 1.5rem 4rem; }
+      .nav-links { display: none; }
+      .hamburger { display: flex; }
+    }
+
+    @media (max-width: 640px) {
+      .hero-title { font-size: 2rem; }
+      main { padding: 1.5rem 1rem 3rem; }
+      .compare-table { font-size: .78rem; }
+      .compare-table td, .compare-table th { padding: .4rem .5rem; }
+      .tab-nav { flex-wrap: wrap; }
+      .tab-btn { font-size: .72rem; padding: .3rem .6rem; }
+      .flags-table { font-size: .78rem; }
+      .flags-table td, .flags-table th { padding: .35rem .5rem; }
+    }
+
+    /* ======================================================= SCROLL REVEAL */
+    .reveal {
+      opacity: 0;
+      transform: translateY(16px);
+      transition: opacity .5s, transform .5s;
+    }
+    .reveal.visible {
+      opacity: 1;
+      transform: none;
+    }
+
+    /* ============================================================== FOOTER */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 1.5rem 2rem;
+      display: flex;
+      justify-content: center;
+    }
+    .footer-inner {
+      display: flex;
+      align-items: center;
+      gap: 2rem;
+      font-size: .8rem;
+      color: var(--text-dim);
+      font-family: var(--mono);
+    }
+    .footer-inner a { color: var(--text-dim); }
+    .footer-inner a:hover { color: var(--text-bright); }
+    .footer-sep { color: var(--border-bright); }
+  </style>
+</head>
+<body>
+
+<!-- ================================================================= NAV -->
+<nav>
+  <a href="#top" class="nav-logo">
+    <span class="logo-prompt">&gt;_</span>
+    <span><span class="logo-do">do</span><span class="logo-dash">-</span><span class="logo-mgr">manager</span></span>
+  </a>
+
+  <ul class="nav-links">
+    <li><a href="#overview">Overview</a></li>
+    <li><a href="#why">Why</a></li>
+    <li><a href="#install">Install</a></li>
+    <li><a href="#cli">CLI</a></li>
+    <li><a href="#library">Library</a></li>
+  </ul>
+
+  <div class="nav-right">
+    <span class="nav-ver">v1.0.0</span>
+    <a href="https://github.com/franckferman/do-manager" class="nav-gh" target="_blank" rel="noopener">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      GitHub
+    </a>
+  </div>
+
+  <button class="hamburger" id="hamburger" aria-label="Menu">
+    <span></span><span></span><span></span>
+  </button>
+</nav>
+
+<!-- Mobile menu -->
+<div class="mobile-menu" id="mobile-menu">
+  <div class="sidebar-section">
+    <div class="sidebar-heading">Navigation</div>
+    <a class="slink" href="#overview" onclick="closeMobile()">Overview</a>
+    <a class="slink" href="#why" onclick="closeMobile()">Why do-manager?</a>
+    <a class="slink" href="#install" onclick="closeMobile()">Installation</a>
+    <a class="slink" href="#config" onclick="closeMobile()">Configuration</a>
+    <a class="slink" href="#droplets" onclick="closeMobile()">Droplets</a>
+    <a class="slink" href="#sshkeys" onclick="closeMobile()">SSH Keys</a>
+    <a class="slink" href="#regions" onclick="closeMobile()">Regions / Sizes</a>
+    <a class="slink" href="#dns" onclick="closeMobile()">DNS</a>
+    <a class="slink" href="#firewall" onclick="closeMobile()">Firewalls</a>
+    <a class="slink" href="#reservedip" onclick="closeMobile()">Reserved IPs</a>
+    <a class="slink" href="#snapshots" onclick="closeMobile()">Snapshots</a>
+    <a class="slink" href="#vpc" onclick="closeMobile()">VPC</a>
+    <a class="slink" href="#campaign" onclick="closeMobile()">Campaign</a>
+    <a class="slink" href="#fw-presets" onclick="closeMobile()">FW Presets</a>
+    <a class="slink" href="#templates" onclick="closeMobile()">Templates</a>
+    <a class="slink" href="#audit" onclick="closeMobile()">Audit</a>
+    <a class="slink" href="#output-json" onclick="closeMobile()">JSON Output</a>
+    <a class="slink" href="#completion" onclick="closeMobile()">Completion</a>
+    <a class="slink" href="#library" onclick="closeMobile()">Library</a>
+  </div>
+</div>
+
+<!-- ================================================================ HERO -->
+<div class="hero" id="top">
+  <div class="hero-text">
+    <div class="hero-kicker">CLI + Go library for DigitalOcean</div>
+
+    <h1 class="hero-title">
+      Deploy. Rotate.<br>Burn. <span style="color:var(--blue)">Rebuild.</span>
+    </h1>
+
+    <p class="hero-sub">
+      Full-featured CLI and importable Go library built on <code>godo</code>.
+      Provision Droplets, manage DNS, VPCs, firewalls, snapshots —
+      no <code>doctl</code>, no subprocess, no state files.<br><br>
+      For Red Team ops: campaign orchestration, IP rotation, firewall presets,
+      cloud-init templates for Havoc, Sliver, nginx redirectors, WireGuard.
+    </p>
+
+    <div class="hero-cta">
+      <a class="btn btn-primary" href="#install">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8s3.58 8 8 8 8-3.58 8-8-3.58-8-8-8zm3.54 8.71l-3.46 3.46a.75.75 0 01-1.06 0L3.54 8.71a.75.75 0 011.06-1.06l2.15 2.15V4a.75.75 0 011.5 0v5.8l2.15-2.15a.75.75 0 111.06 1.06z"/></svg>
+        Get Started
+      </a>
+      <a class="btn btn-ghost" href="https://github.com/franckferman/do-manager" target="_blank" rel="noopener">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        GitHub
+      </a>
+    </div>
+  </div>
+
+  <!-- Animated terminal -->
+  <div class="hero-terminal-wrap">
+    <div class="terminal">
+      <div class="terminal-bar">
+        <span class="tl tl-r"></span>
+        <span class="tl tl-y"></span>
+        <span class="tl tl-g"></span>
+        <span class="terminal-title">do-manager</span>
+      </div>
+      <div class="terminal-body" id="hero-term" style="height:260px;overflow:hidden;white-space:pre-wrap">
+<span class="p">$ </span><span id="type-line" class="c"></span><span class="cursor" id="cursor"></span>
+</div>
+    </div>
+  </div>
+</div>
+
+<!-- =============================================================== STATS -->
+<div class="stats-strip">
+  <span><strong>9</strong> cloud-init templates</span>
+  <span class="stats-sep">·</span>
+  <span><strong>5</strong> firewall presets</span>
+  <span class="stats-sep">·</span>
+  <span><strong>12+</strong> CLI commands</span>
+  <span class="stats-sep">·</span>
+  <span><strong>zero</strong> state files</span>
+  <span class="stats-sep">·</span>
+  <span><strong>one</strong> binary</span>
+</div>
+
+<!-- ============================================================== CONTENT -->
+<div class="content-wrap">
+
+  <!-- sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-heading">Getting Started</div>
+      <a class="slink" href="#overview">Overview</a>
+      <a class="slink" href="#why">Why do-manager?</a>
+      <a class="slink" href="#install">Installation</a>
+      <a class="slink" href="#config">Configuration</a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-heading">CLI Reference</div>
+      <a class="slink" href="#cli">Commands</a>
+      <a class="slink sub" href="#droplets">Droplets</a>
+      <a class="slink sub" href="#sshkeys">SSH Keys</a>
+      <a class="slink sub" href="#regions">Regions / Sizes</a>
+      <a class="slink sub" href="#dns">DNS</a>
+      <a class="slink sub" href="#firewall">Firewalls</a>
+      <a class="slink sub" href="#reservedip">Reserved IPs</a>
+      <a class="slink sub" href="#snapshots">Snapshots</a>
+      <a class="slink sub" href="#vpc">VPC</a>
+      <a class="slink sub" href="#output-json">JSON Output</a>
+      <a class="slink sub" href="#completion">Completion</a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-heading">Red Team</div>
+      <a class="slink" href="#campaign">Campaign</a>
+      <a class="slink sub" href="#fw-presets">Firewall Presets</a>
+      <a class="slink" href="#templates">Templates</a>
+      <a class="slink" href="#audit">Audit</a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-heading">Library</div>
+      <a class="slink" href="#library">Library Usage</a>
+    </div>
+  </aside>
+
+  <!-- main -->
+  <main>
+
+    <!-- OVERVIEW -->
+    <section id="overview" class="reveal">
+      <h2>Overview</h2>
+      <p>
+        <code>do-manager</code> is built directly on <a href="https://github.com/digitalocean/godo" target="_blank" rel="noopener">godo</a>,
+        the official DigitalOcean Go client. Two interfaces, one codebase: a CLI you run at the terminal
+        and a library you import into any Go program.
+      </p>
+      <p style="margin-top:.75rem">
+        It covers the full DO surface: Droplets, DNS, SSH keys, firewalls, VPCs, reserved IPs, snapshots.
+        On top of that it adds higher-level ops: campaign orchestration (deploy an entire stack in one command,
+        rotate IPs when they get burned, rebuild a node, destroy everything cleanly),
+        opinionated firewall presets, a security audit scanner, and cloud-init templates
+        for common tools — Havoc, Sliver, GoPhish, evilginx2, nginx redirectors, WireGuard.
+      </p>
+      <p style="margin-top:.75rem">
+        Use it as a CLI for day-to-day infra work. Use it as a library when you want to provision
+        Droplets or manage firewalls from Go code without shelling out to <code>doctl</code>.
+        Use it for Red Team campaigns where infrastructure lifecycle matters.
+      </p>
+
+      <div class="usecase-grid">
+        <div class="usecase-block">
+          <div class="usecase-label lbl-infra">Infrastructure</div>
+          <div class="usecase-cmds">
+            <div><span class="uc-prompt">$ </span><span class="uc-cmd">droplet create</span> <span class="uc-arg">--name web-01 --wait</span></div>
+            <div><span class="uc-prompt">$ </span><span class="uc-cmd">dns add</span> <span class="uc-arg">--type A --name @ --data 1.2.3.4</span></div>
+            <div><span class="uc-prompt">$ </span><span class="uc-cmd">vpc create</span> <span class="uc-arg">--name lab-net --region fra1</span></div>
+            <div><span class="uc-prompt">$ </span><span class="uc-cmd">firewall preset bastion</span> <span class="uc-arg">--operator-ip x.x.x.x</span></div>
+            <div><span class="uc-prompt">$ </span><span class="uc-cmd">snapshot create</span> <span class="uc-arg">--droplet 123 --wait</span></div>
+          </div>
+          <div class="usecase-desc">Droplets, DNS, SSH keys, VPCs, firewalls, reserved IPs, snapshots. All pipeable with <code>-o json</code>.</div>
+        </div>
+        <div class="usecase-block">
+          <div class="usecase-label lbl-rt">Red Team</div>
+          <div class="usecase-cmds">
+            <div><span class="uc-prompt">$ </span><span class="uc-cmd">campaign deploy</span> <span class="uc-arg">--role "c2:preset=c2:template=c2-havoc"</span></div>
+            <div><span class="uc-prompt">$ </span><span class="uc-cmd">campaign deploy</span> <span class="uc-arg">--role "redir:preset=redirector:reserve-ips"</span></div>
+            <div><span class="uc-prompt">$ </span><span class="uc-cmd">campaign rotate-ips</span> <span class="uc-arg">--name op-ghost</span></div>
+            <div><span class="uc-prompt">$ </span><span class="uc-cmd">droplet rebuild</span> <span class="uc-arg">c2-01 --image c2-snap --wait</span></div>
+            <div><span class="uc-prompt">$ </span><span class="uc-cmd">audit</span></div>
+          </div>
+          <div class="usecase-desc">Campaign lifecycle, IP rotation, firewall presets, cloud-init templates, security audit.</div>
+        </div>
+        <div class="usecase-block">
+          <div class="usecase-label lbl-lib">Go Library</div>
+          <div class="usecase-cmds">
+            <div><span class="uc-code">c, _ := client.New(os.Getenv("DO_TOKEN"))</span></div>
+            <div><span class="uc-code">svc := droplet.New(c)</span></div>
+            <div><span class="uc-code">svc.CreateBatch(ctx, opts, 5)</span></div>
+            <div><span class="uc-code">firewall.ParseRuleSpec("tcp:443:any")</span></div>
+            <div><span class="uc-code">tmpl.Render("redirector-nginx", vars)</span></div>
+          </div>
+          <div class="usecase-desc">Import <code>pkg/droplet</code>, <code>pkg/firewall</code>, <code>pkg/vpc</code>, <code>pkg/tmpl</code>. Typed API, no binary dependency.</div>
+        </div>
+      </div>
+    </section>
+
+    <hr />
+
+    <!-- WHY -->
+    <section id="why" class="reveal">
+      <h2>Why do-manager?</h2>
+      <p>
+        Three approaches are common for managing DO infra from a Red Team perspective.
+        Here is where each one breaks down and where <code>do-manager</code> fills the gap.
+      </p>
+
+      <div class="table-scroll">
+      <table class="compare-table">
+        <thead>
+          <tr>
+            <th style="width:32%"></th>
+            <th>doctl</th>
+            <th>bash + curl API</th>
+            <th>Terraform / Pulumi</th>
+            <th>do-manager</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Type</strong></td>
+            <td>Official DO CLI</td>
+            <td>Ad-hoc scripts</td>
+            <td>Infrastructure-as-Code</td>
+            <td class="highlight-col">CLI + Go library</td>
+          </tr>
+          <tr>
+            <td><strong>Campaign orchestration</strong></td>
+            <td><span class="no">No</span></td>
+            <td><span class="partial">Manual</span></td>
+            <td><span class="partial">Partial</span></td>
+            <td class="highlight-col"><span class="yes">Yes (deploy/status/destroy/rotate)</span></td>
+          </tr>
+          <tr>
+            <td><strong>Firewall presets</strong></td>
+            <td><span class="no">No</span></td>
+            <td><span class="no">No</span></td>
+            <td><span class="no">No</span></td>
+            <td class="highlight-col"><span class="yes">c2, phishing, redirector, bastion, lockdown</span></td>
+          </tr>
+          <tr>
+            <td><strong>IP rotation</strong></td>
+            <td><span class="no">No</span></td>
+            <td><span class="partial">Script it yourself</span></td>
+            <td><span class="no">No</span></td>
+            <td class="highlight-col"><span class="yes">campaign rotate-ips</span></td>
+          </tr>
+          <tr>
+            <td><strong>Parallel batch ops</strong></td>
+            <td><span class="no">No</span></td>
+            <td><span class="partial">background &amp; wait</span></td>
+            <td><span class="partial">Partial</span></td>
+            <td class="highlight-col"><span class="yes">Yes (goroutines, per-slot errors)</span></td>
+          </tr>
+          <tr>
+            <td><strong>Importable as Go lib</strong></td>
+            <td><span class="no">No</span></td>
+            <td><span class="no">No</span></td>
+            <td><span class="no">No (SDK different package)</span></td>
+            <td class="highlight-col"><span class="yes"><code>import "pkg/droplet"</code></span></td>
+          </tr>
+          <tr>
+            <td><strong>Security audit</strong></td>
+            <td><span class="no">No</span></td>
+            <td><span class="no">No</span></td>
+            <td><span class="no">No</span></td>
+            <td class="highlight-col"><span class="yes">Yes (CRITICAL/HIGH exit 1)</span></td>
+          </tr>
+          <tr>
+            <td><strong>Requires state file</strong></td>
+            <td>No</td>
+            <td>No</td>
+            <td><span class="no">Yes (.tfstate)</span></td>
+            <td class="highlight-col">No (stateless)</td>
+          </tr>
+          <tr>
+            <td><strong>Requires external binary</strong></td>
+            <td><span class="no">Yes (doctl)</span></td>
+            <td><span class="no">curl, jq</span></td>
+            <td><span class="no">Yes (terraform)</span></td>
+            <td class="highlight-col"><span class="yes">No</span></td>
+          </tr>
+        </tbody>
+      </table>
+      </div>
+
+      <div class="callout" style="margin-top:1.5rem">
+        <strong>When each tool makes sense</strong><br><br>
+        <strong style="color:var(--text-bright)">doctl</strong> is fine for one-off manual ops at the terminal.
+        It covers every DO resource but has no Red Team abstractions and no campaign concept.<br><br>
+        <strong style="color:var(--text-bright)">bash + curl</strong> works and most Red Teamers start here.
+        It breaks down fast: race conditions in parallel provisioning, fragile ID extraction with <code>grep</code>/<code>jq</code>,
+        no error aggregation, scripts that differ between operators.<br><br>
+        <strong style="color:var(--text-bright)">Terraform</strong> is the right choice for long-lived stable infrastructure.
+        It is overkill for engagements: statefile management is a liability, the feedback loop is slow, and there
+        are no Red Team primitives (no firewall presets, no IP rotation, no node rebuild).<br><br>
+        <strong style="color:var(--text-bright)">do-manager</strong> is the choice when you need to provision
+        a full engagement stack fast, rotate IPs when they get burned, tear everything down cleanly,
+        and optionally embed all of that into a Go automation program.
+      </div>
+    </section>
+
+    <hr />
+
+    <!-- INSTALL -->
+    <section id="install" class="reveal">
+      <h2>Installation</h2>
+      <p>Requires <strong style="color:var(--text-bright)">Go 1.23+</strong>.</p>
+
+      <div class="tabs" id="install-tabs">
+        <div class="tab-nav">
+          <button class="tab-btn active" onclick="switchTab('install-tabs',this,'install-goinstall')">go install</button>
+          <button class="tab-btn" onclick="switchTab('install-tabs',this,'install-source')">From source</button>
+          <button class="tab-btn" onclick="switchTab('install-tabs',this,'install-binary')">Binary release</button>
+        </div>
+        <div class="tab-pane active" id="install-goinstall">
+          <div class="terminal">
+            <div class="terminal-bar">
+              <span class="tl tl-r"></span><span class="tl tl-y"></span><span class="tl tl-g"></span>
+              <span class="terminal-title">terminal</span>
+              <button class="copy-btn" onclick="copyTerminal(this)">
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25v-7.5z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25v-7.5zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25h-7.5z"/></svg>
+                copy
+              </button>
+            </div>
+            <div class="terminal-body">
+<span class="p">$ </span><span class="c">go install github.com/franckferman/do-manager@latest</span>
+            </div>
+          </div>
+        </div>
+        <div class="tab-pane" id="install-source">
+          <div class="terminal">
+            <div class="terminal-bar">
+              <span class="tl tl-r"></span><span class="tl tl-y"></span><span class="tl tl-g"></span>
+              <span class="terminal-title">bash</span>
+              <button class="copy-btn" onclick="copyTerminal(this)">
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25v-7.5z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25v-7.5zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25h-7.5z"/></svg>
+                copy
+              </button>
+            </div>
+            <div class="terminal-body">
+<span class="p">$ </span><span class="c">git clone https://github.com/franckferman/do-manager.git</span>
+<span class="p">$ </span><span class="c">cd do-manager <span class="dm">&amp;&amp;</span> go mod tidy</span>
+<span class="p">$ </span><span class="c">make build</span>
+<span class="p">$ </span><span class="c">./do-manager version</span>
+<span class="o">do-manager v1.0.0  (commit=abc1234  built=2026-01-01T...)</span>
+            </div>
+          </div>
+        </div>
+        <div class="tab-pane" id="install-binary">
+          <div class="terminal">
+            <div class="terminal-bar">
+              <span class="tl tl-r"></span><span class="tl tl-y"></span><span class="tl tl-g"></span>
+              <span class="terminal-title">bash</span>
+            </div>
+            <div class="terminal-body">
+<span class="dm"># Download a pre-built binary from GitHub Releases (linux/darwin/windows, amd64/arm64)</span>
+<span class="p">$ </span><span class="c">curl -sL https://github.com/franckferman/do-manager/releases/latest/download/\</span>
+<span class="c">    do-manager_Linux_x86_64.tar.gz | tar -xz</span>
+<span class="p">$ </span><span class="c">sudo mv do-manager /usr/local/bin/</span>
+<span class="p">$ </span><span class="c">do-manager version</span>
+            </div>
+          </div>
+          <p style="margin-top:.5rem;font-size:.82rem;color:var(--text-dim)">
+            Releases are built automatically by GoReleaser on every <code>v*</code> tag push.
+            Checksums are provided in <code>checksums.txt</code>.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <hr />
+
+    <!-- CONFIG -->
+    <section id="config" class="reveal">
+      <h2>Configuration</h2>
+      <p>The API token is resolved in this priority order — first match wins:</p>
+
+      <table class="flags-table">
+        <thead><tr><th>Method</th><th>Example</th></tr></thead>
+        <tbody>
+          <tr><td><code>--token</code> flag</td><td><code>do-manager --token dop_v1_xxx droplet list</code></td></tr>
+          <tr><td><code>DO_TOKEN</code> env var</td><td><code>export DO_TOKEN=dop_v1_xxx</code></td></tr>
+          <tr><td><code>~/.do-manager.yaml</code></td><td><code>token: dop_v1_xxx</code></td></tr>
+        </tbody>
+      </table>
+
+      <div class="terminal" style="margin:1rem 0">
+        <div class="terminal-bar">
+          <span class="tl tl-r"></span><span class="tl tl-y"></span><span class="tl tl-g"></span>
+          <span class="terminal-title">~/.do-manager.yaml</span>
+        </div>
+        <div class="terminal-body">
+<span class="fl">token</span><span class="o">: </span><span class="vl">dop_v1_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx</span>
+        </div>
+      </div>
+
+      <div class="callout">
+        Generate a Personal Access Token at
+        <a href="https://cloud.digitalocean.com/account/api/tokens" target="_blank" rel="noopener">cloud.digitalocean.com/account/api/tokens</a>.
+        Read+Write scope is required for all mutating operations.
+      </div>
+    </section>
+
+    <hr />
+
+    <!-- CLI -->
+    <section id="cli" class="reveal">
+      <h2>CLI Reference</h2>
+      <p>Global flags available on every command:</p>
+      <table class="flags-table">
+        <thead><tr><th>Flag</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>--token string</code></td><td>DigitalOcean API token (overrides <code>DO_TOKEN</code>)</td></tr>
+          <tr><td><code>-o, --output string</code></td><td>Output format: <code>table</code> (default) or <code>json</code></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- DROPLETS -->
+    <section id="droplets" class="reveal">
+      <h2>Droplets</h2>
+
+      <h3 id="droplet-list">List</h3>
+      <div class="terminal">
+        <div class="terminal-bar">
+          <span class="tl tl-r"></span><span class="tl tl-y"></span><span class="tl tl-g"></span>
+          <span class="terminal-title">do-manager droplet list</span>
+          <button class="copy-btn" onclick="copyTerminal(this)"><svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25v-7.5z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25v-7.5zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25h-7.5z"/></svg>copy</button>
+        </div>
+        <div class="terminal-body">
+<span class="p">$ </span><span class="c">do-manager droplet list</span>
+<span class="dm"></span>
+<span class="hd">&gt;&gt;  3 Droplet(s)</span>
+<span class="dm"></span>
+<span class="hd"> ID          | Name    | Status | Region | Size         | IPv4           | Tags</span>
+<span class="dm"> ------------|---------|--------|--------|--------------|----------------|------</span>
+<span class="o"> 123456789   | web-01  | </span><span class="ok">active</span><span class="o"> | fra1   | s-1vcpu-1gb  | 167.99.12.34   | web</span>
+<span class="o"> 123456790   | db-01   | </span><span class="ok">active</span><span class="o"> | fra1   | s-2vcpu-4gb  | 167.99.12.35   | db</span>
+<span class="o"> 123456791   | bastion | </span><span class="er">off</span><span class="o">    | nyc1   | s-1vcpu-1gb  | 138.68.0.1     |    </span>
+        </div>
+      </div>
+      <p style="font-size:.82rem;color:var(--text-dim)">Aliases: <code>d ls</code> &nbsp; <code>droplets list</code></p>
+
+      <h3 id="droplet-get">Get</h3>
+      <div class="terminal">
+        <div class="terminal-bar">
+          <span class="tl tl-r"></span><span class="tl tl-y"></span><span class="tl tl-g"></span>
+          <span class="terminal-title">do-manager droplet get &lt;id&gt;</span>
+        </div>
+        <div class="terminal-body">
+<span class="p">$ </span><span class="c">do-manager droplet get <span class="vl">123456789</span></span>
+<span class="dm"></span>
+<span class="hd">&gt;&gt; Droplet web-01</span>
+<span class="dm"></span>
+<span class="hd">  ID:           </span><span class="o">123456789</span>
+<span class="hd">  Status:       </span><span class="ok">active</span>
+<span class="hd">  Region:       </span><span class="o">Frankfurt 1 (fra1)</span>
+<span class="hd">  Size:         </span><span class="o">s-1vcpu-1gb</span>
+<span class="hd">  Specs:        </span><span class="o">1 vCPU  /  1024 MB RAM  /  25 GB disk</span>
+<span class="hd">  IPv4:         </span><span class="ok">167.99.12.34</span>
+<span class="hd">  Tags:         </span><span class="o">web</span>
+<span class="hd">  Created:      </span><span class="o">2024-01-15T10:30:00Z</span>
+        </div>
+      </div>
+
+      <h3 id="droplet-create">Create</h3>
+
+      <div class="tabs" id="create-tabs">
+        <div class="tab-nav">
+          <button class="tab-btn active" onclick="switchTab('create-tabs',this,'create-single')">Single</button>
+          <button class="tab-btn" onclick="switchTab('create-tabs',this,'create-batch')">Batch</button>
+        </div>
+        <div class="tab-pane active" id="create-single">
+          <div class="terminal">
+            <div class="terminal-bar">
+              <span class="tl tl-r"></span><span class="tl tl-y"></span><span class="tl tl-g"></span>
+              <span class="terminal-title">single droplet + --wait</span>
+              <button class="copy-btn" onclick="copyTerminal(this)"><svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25v-7.5z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25v-7.5zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25h-7.5z"/></svg>copy</button>
+            </div>
+            <div class="terminal-body">
+<span class="p">$ </span><span class="c">do-manager droplet create \</span>
+<span class="c">    <span class="fl">--name</span> <span class="vl">web-02</span> <span class="fl">--region</span> <span class="vl">fra1</span> <span class="fl">--size</span> <span class="vl">s-2vcpu-4gb</span> \</span>
+<span class="c">    <span class="fl">--image</span> <span class="vl">ubuntu-22-04-x64</span> <span class="fl">--ipv6</span> <span class="fl">--wait</span></span>
+<span class="dm"></span>
+<span class="hd">&gt;&gt;</span><span class="o"> Creating web-02  [region=fra1  size=s-2vcpu-4gb]</span>
+<span class="ok">✓</span><span class="o"> Droplet created  ID=987654321  status=</span><span class="wn">new</span>
+<span class="wn">~</span><span class="o"> Waiting for active state........</span>
+<span class="ok">✓</span><span class="o"> Active  IPv4=</span><span class="ok">167.99.99.1</span>
+            </div>
+          </div>
+        </div>
+        <div class="tab-pane" id="create-batch">
+          <div class="terminal">
+            <div class="terminal-bar">
+              <span class="tl tl-r"></span><span class="tl tl-y"></span><span class="tl tl-g"></span>
+              <span class="terminal-title">batch: 5 Droplets in parallel</span>
+              <button class="copy-btn" onclick="copyTerminal(this)"><svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25v-7.5z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25v-7.5zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25h-7.5z"/></svg>copy</button>
+            </div>
+            <div class="terminal-body">
+<span class="p">$ </span><span class="c">do-manager droplet create \</span>
+<span class="c">    <span class="fl">--name</span> <span class="vl">lab</span> <span class="fl">--count</span> <span class="vl">5</span> <span class="fl">--region</span> <span class="vl">fra1</span> \</span>
+<span class="c">    <span class="fl">--tags</span> <span class="vl">lab,pentest</span> <span class="fl">--wait</span></span>
+<span class="dm"></span>
+<span class="hd">&gt;&gt;</span><span class="o"> Creating 5 Droplets in parallel  [base=lab  region=fra1]</span>
+<span class="ok">  ✓</span><span class="o"> lab-01   ID=111111111   status=</span><span class="wn">new</span>
+<span class="ok">  ✓</span><span class="o"> lab-02   ID=222222222   status=</span><span class="wn">new</span>
+<span class="ok">  ✓</span><span class="o"> lab-03   ID=333333333   status=</span><span class="wn">new</span>
+<span class="ok">  ✓</span><span class="o"> lab-04   ID=444444444   status=</span><span class="wn">new</span>
+<span class="ok">  ✓</span><span class="o"> lab-05   ID=555555555   status=</span><span class="wn">new</span>
+<span class="dm"></span>
+<span class="wn">~</span><span class="o"> Waiting for 5 Droplet(s) to become active............</span>
+<span class="ok">  ✓</span><span class="o"> ID=111111111   IPv4=</span><span class="ok">10.131.0.1</span>
+<span class="ok">  ✓</span><span class="o"> ID=222222222   IPv4=</span><span class="ok">10.131.0.2</span>
+<span class="ok">  ✓</span><span class="o"> ID=333333333   IPv4=</span><span class="ok">10.131.0.3</span>
+<span class="ok">  ✓</span><span class="o"> ID=444444444   IPv4=</span><span class="ok">10.131.0.4</span>
+<span class="ok">  ✓</span><span class="o"> ID=555555555   IPv4=</span><span class="ok">10.131.0.5</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h3>Create flags</h3>
+      <table class="flags-table">
+        <thead><tr><th>Flag</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>-n, --name</code> <span class="tag-req">required</span></td><td></td><td>Droplet name (base name for batch)</td></tr>
+          <tr><td><code>-c, --count</code></td><td><code>1</code></td><td>Number of Droplets to provision in parallel</td></tr>
+          <tr><td><code>-r, --region</code></td><td><code>nyc1</code></td><td>Region slug</td></tr>
+          <tr><td><code>-s, --size</code></td><td><code>s-1vcpu-1gb</code></td><td>Size slug</td></tr>
+          <tr><td><code>-i, --image</code></td><td><code>ubuntu-22-04-x64</code></td><td>Image slug</td></tr>
+          <tr><td><code>--ssh-keys</code></td><td></td><td>SSH key IDs (comma-separated)</td></tr>
+          <tr><td><code>--tags</code></td><td></td><td>Tags (comma-separated)</td></tr>
+          <tr><td><code>--user-data</code></td><td></td><td>Cloud-init script content (inline)</td></tr>
+          <tr><td><code>--user-data-file</code></td><td></td><td>Path to a cloud-init / bash script file</td></tr>
+          <tr><td><code>--template</code></td><td></td><td>Built-in cloud-init template (see <code>template list</code>)</td></tr>
+          <tr><td><code>--template-var</code></td><td></td><td>Template variable <code>KEY=VALUE</code> (repeatable)</td></tr>
+          <tr><td><code>--password</code></td><td></td><td>Set root password via cloud-init — composable with <code>--template</code> and <code>--user-data-file</code></td></tr>
+          <tr><td><code>--ipv6</code></td><td><code>false</code></td><td>Enable IPv6</td></tr>
+          <tr><td><code>--backups</code></td><td><code>false</code></td><td>Enable automatic backups</td></tr>
+          <tr><td><code>-w, --wait</code></td><td><code>false</code></td><td>Poll until active, then print IP(s)</td></tr>
+        </tbody>
+      </table>
+
+      <h3 id="droplet-delete">Delete</h3>
+      <div class="terminal">
+        <div class="terminal-bar">
+          <span class="tl tl-r"></span><span class="tl tl-y"></span><span class="tl tl-g"></span>
+          <span class="terminal-title">do-manager droplet delete</span>
+        </div>
+        <div class="terminal-body">
+<span class="dm"># Single</span>
+<span class="p">$ </span><span class="c">do-manager droplet delete <span class="vl">123456789</span></span>
+<span class="dm"># Multiple IDs in parallel</span>
+<span class="p">$ </span><span class="c">do-manager droplet delete <span class="vl">111 222 333 444 555</span></span>
+<span class="dm"># All Droplets with a tag</span>
+<span class="p">$ </span><span class="c">do-manager droplet delete <span class="fl">--tag</span> <span class="vl">lab</span></span>
+<span class="dm"># Skip confirmation</span>
+<span class="p">$ </span><span class="c">do-manager droplet delete <span class="fl">--tag</span> <span class="vl">lab</span> <span class="fl">--force</span></span>
+        </div>
+      </div>
+
+      <h3 id="droplet-power">Power actions</h3>
+      <div class="terminal">
+        <div class="terminal-bar">
+          <span class="tl tl-r"></span><span class="tl tl-y"></span><span class="tl tl-g"></span>
+          <span class="terminal-title">do-manager droplet power</span>
+        </div>
+        <div class="terminal-body">
+<span class="p">$ </span><span class="c">do-manager droplet power on <span class="vl">123456789</span></span>
+<span class="p">$ </span><span class="c">do-manager droplet power off <span class="vl">123456789</span></span>
+<span class="p">$ </span><span class="c">do-manager droplet power reboot <span class="vl">123456789</span></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- SSH KEYS -->
+    <section id="sshkeys" class="reveal">
+      <h2>SSH Keys</h2>
+      <div class="terminal">
+        <div class="terminal-bar">
+          <span class="tl tl-r"></span><span class="tl tl-y"></span><span class="tl tl-g"></span>
+          <span class="terminal-title">do-manager ssh-key</span>
+          <button class="copy-btn" onclick="copyTerminal(this)"><svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25v-7.5z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25v-7.5zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25h-7.5z"/></svg>copy</button>
+        </div>
+        <div class="terminal-body">
+<span class="dm"># List all keys</span>
+<span class="p">$ </span><span class="c">do-manager ssh-key list</span>
+<span class="dm"># Add from file</span>
+<span class="p">$ </span><span class="c">do-manager ssh-key add <span class="fl">--name</span> <span class="vl">homelab</span> <span class="fl">--file</span> <span class="vl">~/.ssh/id_ed25519.pub</span></span>
+<span class="dm"># Add from string</span>
+<span class="p">$ </span><span class="c">do-manager ssh-key add <span class="fl">--name</span> <span class="vl">ci-key</span> <span class="fl">--public-key</span> <span class="vl">"ssh-ed25519 AAAA..."</span></span>
+<span class="dm"># Get by fingerprint</span>
+<span class="p">$ </span><span class="c">do-manager ssh-key get <span class="vl">"xx:xx:xx:..."</span></span>
+<span class="dm"># Delete</span>
+<span class="p">$ </span><span class="c">do-manager ssh-key delete <span class="vl">"xx:xx:xx:..."</span></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- REGIONS -->
+    <section id="regions" class="reveal">
+      <h2>Regions</h2>
+      <div class="terminal">
+        <div class="terminal-bar">
+          <span class="tl tl-r"></span><span class="tl tl-y"></span><span class="tl tl-g"></span>
+          <span class="terminal-title">do-manager region list</span>
+        </div>
+        <div class="terminal-body">
+<span class="p">$ </span><span class="c">do-manager region list</span>
+<span class="dm"></span>
+<span class="hd">&gt;&gt;  14 region(s)</span>
+<span class="dm"></span>
+<span class="hd"> Slug  | Name               | Available</span>
+<span class="dm"> ------|--------------------|-----------</span>
+<span class="o"> nyc1  | New York 1         | </span><span class="ok">yes</span>
+<span class="o"> ams3  | Amsterdam 3        | </span><span class="ok">yes</span>
+<span class="o"> fra1  | Frankfurt 1        | </span><span class="ok">yes</span>
+<span class="o"> sgp1  | Singapore 1        | </span><span class="ok">yes</span>
+<span class="o"> ...</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- SIZES -->
+    <section id="sizes" class="reveal">
+      <h2>Sizes</h2>
+      <div class="terminal">
+        <div class="terminal-bar">
+          <span class="tl tl-r"></span><span class="tl tl-y"></span><span class="tl tl-g"></span>
+          <span class="terminal-title">do-manager size list</span>
+        </div>
+        <div class="terminal-body">
+<span class="p">$ </span><span class="c">do-manager size list</span>
+<span class="dm"></span>
+<span class="hd">&gt;&gt;  72 size(s)</span>
+<span class="dm"></span>
+<span class="hd"> Slug             | vCPUs | Memory (MB) | Disk (GB) | Price/mo</span>
+<span class="dm"> ----------------|-------|-------------|-----------|----------</span>
+<span class="o"> s-1vcpu-1gb      | 1     | 1024        | 25        | $6.00</span>
+<span class="o"> s-1vcpu-2gb      | 1     | 2048        | 50        | $12.00</span>
+<span class="o"> s-2vcpu-4gb      | 2     | 4096        | 80        | $24.00</span>
+<span class="o"> ...</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- IMAGES -->
+    <section id="images" class="reveal">
+      <h2>Images</h2>
+      <div class="terminal">
+        <div class="terminal-bar">
+          <span class="tl tl-r"></span><span class="tl tl-y"></span><span class="tl tl-g"></span>
+          <span class="terminal-title">do-manager image list</span>
+        </div>
+        <div class="terminal-body">
+<span class="dm"># Distribution images (default)</span>
+<span class="p">$ </span><span class="c">do-manager image list</span>
+<span class="dm"># Application images</span>
+<span class="p">$ </span><span class="c">do-manager image list <span class="fl">--type</span> <span class="vl">application</span></span>
+<span class="dm"># All public images</span>
+<span class="p">$ </span><span class="c">do-manager image list <span class="fl">--type</span> <span class="vl">""</span></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- JSON OUTPUT -->
+    <section id="output-json" class="reveal">
+      <h2>JSON Output</h2>
+      <p>
+        Every command supports <code>-o json</code> (or <code>--output json</code>).
+        The flag is global — attach it anywhere in the command line.
+      </p>
+
+      <div class="tabs" id="json-tabs">
+        <div class="tab-nav">
+          <button class="tab-btn active" onclick="switchTab('json-tabs',this,'json-list')">droplet list</button>
+          <button class="tab-btn" onclick="switchTab('json-tabs',this,'json-get')">droplet get</button>
+          <button class="tab-btn" onclick="switchTab('json-tabs',this,'json-sshkey')">ssh-key list</button>
+        </div>
+        <div class="tab-pane active" id="json-list">
+          <div class="terminal">
+            <div class="terminal-bar">
+              <span class="tl tl-r"></span><span class="tl tl-y"></span><span class="tl tl-g"></span>
+              <span class="terminal-title">-o json | jq</span>
+              <button class="copy-btn" onclick="copyTerminal(this)"><svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25v-7.5z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25v-7.5zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25h-7.5z"/></svg>copy</button>
+            </div>
+            <div class="terminal-body">
+<span class="p">$ </span><span class="c">do-manager droplet list <span class="fl">-o json</span> | jq <span class="vl">'.[].name'</span></span>
+<span class="ok">"web-01"</span>
+<span class="ok">"db-01"</span>
+<span class="ok">"bastion"</span>
+            </div>
+          </div>
+        </div>
+        <div class="tab-pane" id="json-get">
+          <div class="terminal">
+            <div class="terminal-bar">
+              <span class="tl tl-r"></span><span class="tl tl-y"></span><span class="tl tl-g"></span>
+              <span class="terminal-title">droplet get -o json</span>
+            </div>
+            <div class="terminal-body">
+<span class="p">$ </span><span class="c">do-manager droplet get <span class="vl">123456789</span> <span class="fl">-o json</span></span>
+<span class="dm">{</span>
+<span class="o">  </span><span class="fl">"id"</span><span class="o">: </span><span class="vl">123456789</span><span class="dm">,</span>
+<span class="o">  </span><span class="fl">"name"</span><span class="o">: </span><span class="ok">"web-01"</span><span class="dm">,</span>
+<span class="o">  </span><span class="fl">"status"</span><span class="o">: </span><span class="ok">"active"</span><span class="dm">,</span>
+<span class="o">  </span><span class="fl">"networks"</span><span class="o">: { ... }</span><span class="dm">,</span>
+<span class="o">  ...</span>
+<span class="dm">}</span>
+            </div>
+          </div>
+        </div>
+        <div class="tab-pane" id="json-sshkey">
+          <div class="terminal">
+            <div class="terminal-bar">
+              <span class="tl tl-r"></span><span class="tl tl-y"></span><span class="tl tl-g"></span>
+              <span class="terminal-title">ssh-key list -o json</span>
+            </div>
+            <div class="terminal-body">
+<span class="p">$ </span><span class="c">do-manager ssh-key list <span class="fl">-o json</span> | jq <span class="vl">'.[].fingerprint'</span></span>
+<span class="ok">"ab:cd:ef:..."</span>
+<span class="ok">"12:34:56:..."</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout-tip callout">
+        Progress dots (when using <code>--wait</code>) are redirected to <code>stderr</code> in JSON mode,
+        keeping <code>stdout</code> clean and parseable.
+      </div>
+    </section>
+
+    <!-- COMPLETION -->
+    <section id="completion" class="reveal">
+      <h2>Shell Completion</h2>
+      <p>
+        <code>do-manager completion &lt;shell&gt;</code> generates an autocompletion script.
+        Supported shells: <code>bash</code>, <code>zsh</code>, <code>fish</code>, <code>powershell</code>.
+      </p>
+
+      <div class="tabs" id="comp-tabs">
+        <div class="tab-nav">
+          <button class="tab-btn active" onclick="switchTab('comp-tabs',this,'comp-zsh')">zsh</button>
+          <button class="tab-btn" onclick="switchTab('comp-tabs',this,'comp-bash')">bash</button>
+          <button class="tab-btn" onclick="switchTab('comp-tabs',this,'comp-fish')">fish</button>
+          <button class="tab-btn" onclick="switchTab('comp-tabs',this,'comp-ps')">powershell</button>
+        </div>
+        <div class="tab-pane active" id="comp-zsh">
+          <div class="terminal">
+            <div class="terminal-bar">
+              <span class="tl tl-r"></span><span class="tl tl-y"></span><span class="tl tl-g"></span>
+              <span class="terminal-title">~/.zshrc</span>
+              <button class="copy-btn" onclick="copyTerminal(this)"><svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25v-7.5z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25v-7.5zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25h-7.5z"/></svg>copy</button>
+            </div>
+            <div class="terminal-body">
+<span class="dm"># Add to ~/.zshrc</span>
+<span class="p">$ </span><span class="c">source &lt;(do-manager completion zsh)</span>
+            </div>
+          </div>
+        </div>
+        <div class="tab-pane" id="comp-bash">
+          <div class="terminal">
+            <div class="terminal-bar">
+              <span class="tl tl-r"></span><span class="tl tl-y"></span><span class="tl tl-g"></span>
+              <span class="terminal-title">~/.bashrc</span>
+              <button class="copy-btn" onclick="copyTerminal(this)"><svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25v-7.5z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25v-7.5zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25h-7.5z"/></svg>copy</button>
+            </div>
+            <div class="terminal-body">
+<span class="dm"># Add to ~/.bashrc</span>
+<span class="p">$ </span><span class="c">source &lt;(do-manager completion bash)</span>
+            </div>
+          </div>
+        </div>
+        <div class="tab-pane" id="comp-fish">
+          <div class="terminal">
+            <div class="terminal-bar">
+              <span class="tl tl-r"></span><span class="tl tl-y"></span><span class="tl tl-g"></span>
+              <span class="terminal-title">fish</span>
+            </div>
+            <div class="terminal-body">
+<span class="p">$ </span><span class="c">do-manager completion fish | source</span>
+            </div>
+          </div>
+        </div>
+        <div class="tab-pane" id="comp-ps">
+          <div class="terminal">
+            <div class="terminal-bar">
+              <span class="tl tl-r"></span><span class="tl tl-y"></span><span class="tl tl-g"></span>
+              <span class="terminal-title">PowerShell</span>
+            </div>
+            <div class="terminal-body">
+<span class="p">PS&gt; </span><span class="c">do-manager completion powershell | Out-String | Invoke-Expression</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- VERSION -->
+    <section id="version" class="reveal">
+      <h2>Version</h2>
+      <div class="terminal">
+        <div class="terminal-bar">
+          <span class="tl tl-r"></span><span class="tl tl-y"></span><span class="tl tl-g"></span>
+          <span class="terminal-title">do-manager version</span>
+        </div>
+        <div class="terminal-body">
+<span class="p">$ </span><span class="c">do-manager version</span>
+<span class="o">do-manager v0.2.0  (commit=</span><span class="vl">a3f9c12</span><span class="o">  built=</span><span class="vl">2026-01-01T12:00:00Z</span><span class="o">)</span>
+<span class="dm"></span>
+<span class="p">$ </span><span class="c">do-manager version <span class="fl">-o json</span></span>
+<span class="dm">{</span>
+<span class="o">  </span><span class="fl">"version"</span><span class="o">: </span><span class="ok">"v0.2.0"</span><span class="dm">,</span>
+<span class="o">  </span><span class="fl">"commit"</span><span class="o">:  </span><span class="ok">"a3f9c12"</span><span class="dm">,</span>
+<span class="o">  </span><span class="fl">"build_date"</span><span class="o">: </span><span class="ok">"2026-01-01T12:00:00Z"</span>
+<span class="dm">}</span>
+        </div>
+      </div>
+      <p style="font-size:.82rem;color:var(--text-dim)">
+        Version, commit, and build date are injected at build time via <code>-ldflags</code>.
+        Release binaries carry the correct Git tag automatically via GoReleaser.
+      </p>
+    </section>
+
+    <hr />
+
+    <!-- DNS -->
+    <section id="dns" class="reveal">
+      <h2>DNS</h2>
+      <p>Manage domains and DNS records directly from the CLI. Supports A, AAAA, CNAME, MX, TXT, NS, SRV, CAA.</p>
+
+      <h3>Domain commands</h3>
+      <div class="terminal">
+        <div class="terminal-bar"><span class="tl tl-r"></span><span class="tl tl-y"></span><span class="tl tl-g"></span><span class="terminal-title">terminal</span><button class="copy-btn" onclick="copyTerminal(this)"><svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25v-7.5z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25v-7.5zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25h-7.5z"/></svg>copy</button></div>
+        <div class="terminal-body">
+<span class="dm"># List / inspect domains</span>
+<span class="p">$ </span><span class="c">do-manager dns list</span>
+<span class="p">$ </span><span class="c">do-manager dns get example.com</span>
+<span class="dm"># Register a domain, optionally create default A record</span>
+<span class="p">$ </span><span class="c">do-manager dns create --domain example.com --ip 1.2.3.4</span>
+<span class="p">$ </span><span class="c">do-manager dns delete example.com</span>
+        </div>
+      </div>
+
+      <h3>Record commands</h3>
+      <div class="terminal">
+        <div class="terminal-bar"><span class="tl tl-r"></span><span class="tl tl-y"></span><span class="tl tl-g"></span><span class="terminal-title">terminal</span><button class="copy-btn" onclick="copyTerminal(this)"><svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25v-7.5z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25v-7.5zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25h-7.5z"/></svg>copy</button></div>
+        <div class="terminal-body">
+<span class="dm"># List records for a domain</span>
+<span class="p">$ </span><span class="c">do-manager dns records example.com</span>
+<span class="dm"># Add an A record (root)</span>
+<span class="p">$ </span><span class="c">do-manager dns add --domain example.com --type A --name @ --data 1.2.3.4</span>
+<span class="dm"># Add a CNAME</span>
+<span class="p">$ </span><span class="c">do-manager dns add --domain example.com --type CNAME --name mail --data @</span>
+<span class="dm"># Add SPF TXT record</span>
+<span class="p">$ </span><span class="c">do-manager dns add --domain example.com --type TXT --name @ --data "v=spf1 mx -all"</span>
+<span class="dm"># Delete a record by ID</span>
+<span class="p">$ </span><span class="c">do-manager dns rm-record example.com 123456</span>
+        </div>
+      </div>
+    </section>
+
+    <hr />
+
+    <!-- FIREWALLS -->
+    <section id="firewall" class="reveal">
+      <h2>Firewalls</h2>
+      <p>Create and manage Cloud Firewalls. Rules use the format <code>proto:ports:addresses</code>.</p>
+
+      <div class="terminal">
+        <div class="terminal-bar"><span class="tl tl-r"></span><span class="tl tl-y"></span><span class="tl tl-g"></span><span class="terminal-title">terminal</span><button class="copy-btn" onclick="copyTerminal(this)"><svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25v-7.5z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25v-7.5zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25h-7.5z"/></svg>copy</button></div>
+        <div class="terminal-body">
+<span class="p">$ </span><span class="c">do-manager firewall list</span>
+<span class="p">$ </span><span class="c">do-manager firewall create --name my-fw \</span>
+<span class="o">    --inbound "tcp:443:any" --inbound "tcp:22:203.0.113.1" \</span>
+<span class="o">    --outbound "tcp:0-65535:any" \</span>
+<span class="o">    --droplets 12345678</span>
+<span class="p">$ </span><span class="c">do-manager firewall attach &lt;id&gt; --droplets 12345678,87654321</span>
+<span class="p">$ </span><span class="c">do-manager firewall delete &lt;id&gt;</span>
+        </div>
+      </div>
+
+    </section>
+
+    <hr />
+
+    <!-- RESERVED IPs -->
+    <section id="reservedip" class="reveal">
+      <h2>Reserved IPs</h2>
+      <p>
+        Reserved IPs are static addresses that persist even when a Droplet is deleted or rebuilt.
+        Use them for DNS stability - point your domain to the reserved IP, swap the underlying Droplet freely.
+      </p>
+
+      <div class="terminal">
+        <div class="terminal-bar"><span class="tl tl-r"></span><span class="tl tl-y"></span><span class="tl tl-g"></span><span class="terminal-title">terminal</span><button class="copy-btn" onclick="copyTerminal(this)"><svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25v-7.5z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25v-7.5zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25h-7.5z"/></svg>copy</button></div>
+        <div class="terminal-body">
+<span class="p">$ </span><span class="c">do-manager reservedip list</span>
+<span class="dm"># Reserve an IP in fra1, assign to droplet immediately</span>
+<span class="p">$ </span><span class="c">do-manager reservedip reserve --region fra1 --droplet 12345678</span>
+<span class="dm"># Move IP to a different droplet</span>
+<span class="p">$ </span><span class="c">do-manager reservedip unassign 1.2.3.4</span>
+<span class="p">$ </span><span class="c">do-manager reservedip assign 1.2.3.4 --droplet 87654321</span>
+<span class="dm"># Release IP back to pool</span>
+<span class="p">$ </span><span class="c">do-manager reservedip delete 1.2.3.4</span>
+        </div>
+      </div>
+    </section>
+
+    <hr />
+
+    <!-- SNAPSHOTS -->
+    <section id="snapshots" class="reveal">
+      <h2>Snapshots</h2>
+      <p>
+        Create, list, and delete Droplet snapshots.
+        Snapshots are the foundation for repeatable campaign deployments.
+        The workflow: provision one Droplet, install and configure your tooling
+        (GoPhish, Havoc C2, evilginx2, nginx redirector config, WireGuard), take a snapshot,
+        delete the source Droplet. On engagement day, <code>campaign deploy --snapshot &lt;slug&gt;</code>
+        restores that exact state across N nodes in parallel. No reinstalling,
+        no drift between nodes.
+      </p>
+
+      <div class="terminal">
+        <div class="terminal-bar"><span class="tl tl-r"></span><span class="tl tl-y"></span><span class="tl tl-g"></span><span class="terminal-title">terminal</span><button class="copy-btn" onclick="copyTerminal(this)"><svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25v-7.5z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25v-7.5zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25h-7.5z"/></svg>copy</button></div>
+        <div class="terminal-body">
+<span class="p">$ </span><span class="c">do-manager snapshot list</span>
+<span class="p">$ </span><span class="c">do-manager snapshot get &lt;id&gt;</span>
+<span class="dm"># Snapshot a running droplet, wait until done</span>
+<span class="p">$ </span><span class="c">do-manager snapshot create --droplet 12345678 --name gophish-v2 --wait</span>
+<span class="ok">✓ Snapshot gophish-v2 created</span>
+<span class="o">  Deploy: do-manager campaign deploy --snapshot gophish-v2 ...</span>
+<span class="p">$ </span><span class="c">do-manager snapshot delete &lt;id&gt;</span>
+        </div>
+      </div>
+    </section>
+
+    <hr />
+
+    <!-- VPC -->
+    <section id="vpc" class="reveal">
+      <h2>VPC</h2>
+      <p>
+        A VPC (Virtual Private Cloud) is an isolated Layer-2 private network scoped to a region.
+        Every Droplet inside gets a private IP in addition to its public one.
+        Traffic between VPC members stays on the DO fabric - it never leaves the datacenter.
+      </p>
+      <p style="margin-top:.75rem">
+        <strong style="color:var(--text-bright)">What VPC is and is not.</strong>
+        VPC gives you private network reachability between Droplets in the same region.
+        It is not the channel you use to proxy C2 traffic - that is handled at the application layer
+        (SSH tunnel, WireGuard, socat, nginx). VPC is the network isolation layer: your C2 node
+        has no public firewall rule for the C2 port, so the only path to it is via the private IP,
+        which only nodes inside the same VPC can reach.
+      </p>
+
+      <h3>Redirector-to-C2 connection options</h3>
+      <p>Three common approaches to route traffic from redirector to C2. All are compatible with VPC:</p>
+
+      <div class="table-scroll">
+        <table class="flags-table">
+          <thead><tr><th>Method</th><th>How it works</th><th>Tradeoffs</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><strong>DO VPC private IP</strong></td>
+              <td>Both nodes in same region/VPC. nginx/socat on redirector forwards to <code>10.x.x.x:port</code>. No public port on C2.</td>
+              <td>DO-only. Requires same region. Zero extra setup once nodes are up.</td>
+            </tr>
+            <tr>
+              <td><strong>WireGuard tunnel</strong></td>
+              <td>Peer-to-peer VPN between redirector and C2. C2 listens only on <code>wg0</code> interface. Works cross-provider, cross-region.</td>
+              <td>Extra setup in user-data/cloud-init. More opsec: no public IP on C2 at all.</td>
+            </tr>
+            <tr>
+              <td><strong>SSH reverse tunnel</strong></td>
+              <td>C2 initiates: <code>ssh -R 8080:localhost:8080 user@redirector</code>. Redirector forwards inbound to the tunnel.</td>
+              <td>Simple. C2 needs no inbound port. Tunnel drops if SSH dies - use autossh/systemd.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>VPC architecture</h3>
+      <div class="terminal">
+        <div class="terminal-bar"><span class="tl tl-r"></span><span class="tl tl-y"></span><span class="tl tl-g"></span><span class="terminal-title">network diagram (VPC + nginx proxy)</span></div>
+        <div class="terminal-body">
+<span class="dm">           Internet</span>
+<span class="dm">               |</span>
+<span class="dm">  Agent beacon  |  HTTPS :443</span>
+<span class="dm">               |</span>
+<span class="hd">        [Redirector]</span><span class="o">  1.2.3.4  public firewall: 80,443 open</span>
+<span class="o">         nginx proxy_pass http://10.20.0.2:443</span>
+<span class="dm">               |</span>
+<span class="dm"> DO VPC 10.20.0.0/24  (private - stays inside datacenter fabric)</span>
+<span class="dm">               |</span>
+<span class="hd">        [C2 Server]</span><span class="o">  10.20.0.2  no public port for C2 protocol</span>
+<span class="o">                         public firewall: SSH only from operator IP</span>
+<span class="dm">                         Havoc / Cobalt Strike / Sliver listening on all interfaces</span>
+        </div>
+      </div>
+
+      <h3>Commands</h3>
+      <div class="terminal">
+        <div class="terminal-bar"><span class="tl tl-r"></span><span class="tl tl-y"></span><span class="tl tl-g"></span><span class="terminal-title">terminal</span><button class="copy-btn" onclick="copyTerminal(this)"><svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25v-7.5z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25v-7.5zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25h-7.5z"/></svg>copy</button></div>
+        <div class="terminal-body">
+<span class="dm"># Create a VPC (--ip-range optional, DO assigns /20 automatically if omitted)</span>
+<span class="p">$ </span><span class="c">do-manager vpc create --name c2-net --region fra1 --ip-range 10.20.0.0/24</span>
+<span class="ok">✓ VPC created</span>
+<span class="o">  ID:        abc-uuid-123</span>
+<span class="o">  IP Range:  10.20.0.0/24</span>
+<span class="dm"># Deploy all campaign droplets inside the VPC</span>
+<span class="p">$ </span><span class="c">do-manager campaign deploy --name op-ghost \</span>
+<span class="o">    --vpc-uuid abc-uuid-123 \</span>
+<span class="o">    --count 3 --region fra1 --snapshot c2-snapshot</span>
+<span class="dm"># Or let campaign create the VPC automatically</span>
+<span class="p">$ </span><span class="c">do-manager campaign deploy --name op-ghost --vpc-auto ...</span>
+<span class="dm"># List all members (droplets, load balancers...)</span>
+<span class="p">$ </span><span class="c">do-manager vpc members abc-uuid-123</span>
+<span class="p">$ </span><span class="c">do-manager vpc list</span>
+<span class="p">$ </span><span class="c">do-manager vpc delete abc-uuid-123</span>
+        </div>
+      </div>
+    </section>
+
+    <hr />
+
+    <h2 class="section-group-heading">Red Team</h2>
+
+    <!-- CAMPAIGN -->
+    <section id="campaign" class="reveal">
+      <h2>Campaign</h2>
+      <p>
+        Deploy and destroy a complete infrastructure campaign with a single command.
+        A campaign groups Droplets, a Firewall, and Reserved IPs under a tag (<code>campaign:&lt;name&gt;</code>).
+        All resources are created in the correct order and torn down atomically.
+      </p>
+      <p style="margin-top:.75rem">
+        The campaign abstraction exists because Red Team infra has a lifecycle: spin up fast before the engagement,
+        rotate IPs when they get burned, rebuild a single compromised node without touching the rest,
+        tear everything down cleanly at the end. Doing this with <code>doctl</code> one command at a time
+        is possible but tedious and error-prone under pressure. <code>campaign deploy</code> and
+        <code>campaign destroy</code> are atomic - either the whole stack is up, or you know exactly
+        which slot failed.
+      </p>
+
+      <div class="callout">
+        <strong>What a campaign creates:</strong> N Droplets in parallel + firewall with your inbound/outbound rules
+        (or a preset) + optional reserved IPs per Droplet. All tagged <code>campaign:&lt;name&gt;</code>
+        so <code>status</code> and <code>destroy</code> can find every resource by tag.
+        Multi-role campaigns additionally create per-role firewalls and per-role Droplet tags (<code>role:c2</code>, <code>role:redirector</code>).
+      </div>
+
+      <h3>Full workflow</h3>
+      <div class="terminal">
+        <div class="terminal-bar"><span class="tl tl-r"></span><span class="tl tl-y"></span><span class="tl tl-g"></span><span class="terminal-title">Red Team campaign lifecycle</span><button class="copy-btn" onclick="copyTerminal(this)"><svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25v-7.5z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25v-7.5zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25h-7.5z"/></svg>copy</button></div>
+        <div class="terminal-body">
+<span class="dm"># 1. Create isolated network</span>
+<span class="p">$ </span><span class="c">do-manager vpc create --name phish-net --region fra1</span>
+<span class="dm"># 2. Deploy the campaign</span>
+<span class="p">$ </span><span class="c">do-manager campaign deploy \</span>
+<span class="o">    --name phish-q2 \</span>
+<span class="o">    --count 3 \</span>
+<span class="o">    --region fra1 \</span>
+<span class="o">    --snapshot gophish-v2 \</span>
+<span class="o">    --vpc-uuid &lt;vpc-id&gt; \</span>
+<span class="o">    --user-data-file ./setup_gophish.sh \</span>
+<span class="o">    --inbound "tcp:443:any" --inbound "tcp:80:any" \</span>
+<span class="o">    --inbound "tcp:22:203.0.113.1" \</span>
+<span class="o">    --outbound "tcp:0-65535:any" \</span>
+<span class="o">    --reserve-ips</span>
+<span class="ok">✓ Campaign phish-q2 deployed in 1m52s</span>
+<span class="o">  Droplets:  3</span>
+<span class="o">  IPs:       167.99.10.1  167.99.10.2  167.99.10.3</span>
+<span class="o">  Tag:       campaign:phish-q2</span>
+<span class="dm"># 3. Check status at any time</span>
+<span class="p">$ </span><span class="c">do-manager campaign status --name phish-q2</span>
+<span class="dm"># 4. IP burned / blacklisted - rotate without downtime</span>
+<span class="p">$ </span><span class="c">do-manager campaign rotate-ips --name phish-q2</span>
+<span class="o">  phish-q2-01  167.99.10.1 -> </span><span class="ok">45.33.1.10</span>
+<span class="o">  phish-q2-02  167.99.10.2 -> </span><span class="ok">45.33.1.11</span>
+<span class="o">  phish-q2-03  167.99.10.3 -> </span><span class="ok">45.33.1.12</span>
+<span class="dm"># 5. Teardown everything</span>
+<span class="p">$ </span><span class="c">do-manager campaign destroy --name phish-q2 --force</span>
+<span class="ok">✓ Campaign phish-q2 destroyed</span>
+<span class="o">  Droplets:    3</span>
+<span class="o">  Reserved IPs: 3</span>
+<span class="o">  Firewall:    phish-q2-fw</span>
+        </div>
+      </div>
+
+      <h3>Key flags for <code>campaign deploy</code></h3>
+      <div class="table-scroll">
+        <table class="flags-table">
+          <thead><tr><th>Flag</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>--name</code> <span class="tag-req">required</span></td><td>Campaign name - used as tag prefix and resource names</td></tr>
+            <tr><td><code>--count</code></td><td>Number of Droplets to provision in parallel (default 1)</td></tr>
+            <tr><td><code>--snapshot</code></td><td>Image slug or snapshot slug/ID to deploy from</td></tr>
+            <tr><td><code>--vpc-uuid</code></td><td>Place all Droplets inside this VPC</td></tr>
+            <tr><td><code>--inbound</code></td><td>Firewall inbound rule: <code>proto:ports:addresses</code> (repeatable)</td></tr>
+            <tr><td><code>--outbound</code></td><td>Firewall outbound rule (repeatable)</td></tr>
+            <tr><td><code>--reserve-ips</code></td><td>Reserve and assign a static IP to each Droplet</td></tr>
+            <tr><td><code>--user-data-file</code></td><td>Bash / cloud-init script run at first boot</td></tr>
+            <tr><td><code>--password</code></td><td>Set root password via cloud-init on all Droplets (composable with templates)</td></tr>
+            <tr><td><code>--ssh-keys</code></td><td>SSH key IDs to embed (comma-separated)</td></tr>
+            <tr><td><code>--role</code></td><td>Multi-role spec: <code>name:count=N:snapshot=slug:preset=c2:reserve-ips</code> (repeatable, replaces simple flags)</td></tr>
+            <tr><td><code>--operator-ip</code></td><td>Restrict SSH in preset firewall rules to this IP only</td></tr>
+            <tr><td><code>--vpc-auto</code></td><td>Auto-create a VPC and place all Droplets inside it</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Multi-role campaign</h3>
+      <p>
+        Deploy multiple distinct node types in a single command using <code>--role</code>.
+        Each role gets its own Droplets, its own firewall (preset or custom), and optional reserved IPs.
+        All roles share the campaign tag for unified <code>status</code> / <code>destroy</code>.
+      </p>
+      <div class="callout">
+        <strong>Role spec format:</strong> <code>name:count=N:snapshot=slug:size=s-1vcpu-1gb:preset=c2:reserve-ips</code><br>
+        Every field except <code>name</code> is optional and falls back to campaign-level flags.
+        <code>reserve-ips</code> is a boolean token (no value needed).
+      </div>
+      <div class="terminal">
+        <div class="terminal-bar"><span class="tl tl-r"></span><span class="tl tl-y"></span><span class="tl tl-g"></span><span class="terminal-title">Multi-role: C2 + redirectors inside a VPC</span><button class="copy-btn" onclick="copyTerminal(this)"><svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25v-7.5z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25v-7.5zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25h-7.5z"/></svg>copy</button></div>
+        <div class="terminal-body">
+<span class="dm"># One command: 1 C2 node (no public IP) + 3 redirectors (reserved IPs, public 443/80)</span>
+<span class="p">$ </span><span class="c">do-manager campaign deploy \</span>
+<span class="o">    --name op-phantom \</span>
+<span class="o">    --region fra1 \</span>
+<span class="o">    --operator-ip 203.0.113.5 \</span>
+<span class="o">    --vpc-auto \</span>
+<span class="o">    --role "c2:count=1:snapshot=havoc-v3:preset=c2" \</span>
+<span class="o">    --role "redirector:count=3:snapshot=nginx-redir-v1:preset=redirector:reserve-ips"</span>
+<span class="ok">✓ VPC created: op-phantom-vpc  10.10.0.0/20</span>
+<span class="ok">✓ Role c2: 1 Droplet(s) created  firewall=op-phantom-c2-fw</span>
+<span class="ok">✓ Role redirector: 3 Droplet(s) created  firewall=op-phantom-redirector-fw  ips=3</span>
+<span class="dm"># The C2 node is only reachable via private VPC IP from the redirectors</span>
+<span class="dm"># Redirectors forward HTTPS -> C2 via 10.10.x.x, no public C2 port exposed</span>
+<span class="p">$ </span><span class="c">do-manager campaign status --name op-phantom</span>
+<span class="dm"># Tear down everything in one shot</span>
+<span class="p">$ </span><span class="c">do-manager campaign destroy --name op-phantom --force</span>
+        </div>
+      </div>
+      <div class="table-scroll">
+        <table class="flags-table">
+          <thead><tr><th>Role token</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>name</code> (first token)</td><td>Role label, used in resource names and tags: <code>role:c2</code>, <code>campaign-c2-fw</code></td></tr>
+            <tr><td><code>count=N</code></td><td>Number of Droplets for this role (default 1)</td></tr>
+            <tr><td><code>snapshot=slug</code></td><td>Image slug or snapshot name (falls back to <code>--snapshot</code>)</td></tr>
+            <tr><td><code>image=slug</code></td><td>Alias for <code>snapshot</code></td></tr>
+            <tr><td><code>size=slug</code></td><td>Droplet size (falls back to <code>--size</code>)</td></tr>
+            <tr><td><code>preset=name</code></td><td>Firewall preset: <code>c2</code>, <code>phishing</code>, <code>redirector</code>, <code>bastion</code>, <code>lockdown</code></td></tr>
+            <tr><td><code>reserve-ips</code></td><td>Reserve and assign a static IP per Droplet in this role</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Rebuild a burned node</h3>
+      <p>When a single node is compromised, rebuild it without touching the rest of the campaign. The reserved IP stays assigned.</p>
+      <div class="terminal">
+        <div class="terminal-bar"><span class="tl tl-r"></span><span class="tl tl-y"></span><span class="tl tl-g"></span><span class="terminal-title">terminal</span><button class="copy-btn" onclick="copyTerminal(this)"><svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25v-7.5z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25v-7.5zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25h-7.5z"/></svg>copy</button></div>
+        <div class="terminal-body">
+<span class="dm"># Node burned - wipe disk, reinstall from clean snapshot, keep same IP</span>
+<span class="p">$ </span><span class="c">do-manager droplet rebuild phish-q2-02 --image gophish-v2 --wait</span>
+<span class="wn">~ Rebuilding phish-q2-02 (ID=124)  ip=167.99.10.2  image=gophish-v2</span>
+<span class="wn">~ Waiting for rebuild ..........</span>
+<span class="ok">✓ Droplet phish-q2-02 rebuilt successfully  ip=167.99.10.2</span>
+        </div>
+      </div>
+    </section>
+
+    <hr />
+
+    <!-- FIREWALL PRESETS -->
+    <section id="fw-presets" class="reveal">
+      <h2>Firewall Presets</h2>
+      <p>Apply a named opinionated ruleset for common Red Team roles. Use <code>--operator-ip</code> to restrict SSH to your IP only.</p>
+
+      <div class="table-scroll">
+        <table class="compare-table">
+          <thead><tr><th>Profile</th><th>Inbound</th><th>Outbound</th><th>Use case</th></tr></thead>
+          <tbody>
+            <tr><td><code>c2</code></td><td>443, 80, 53, SSH(op-ip)</td><td>all</td><td>Command &amp; Control server</td></tr>
+            <tr><td><code>phishing</code></td><td>443, 80, 8080, SSH(op-ip)</td><td>all</td><td>GoPhish / evilginx2</td></tr>
+            <tr><td><code>redirector</code></td><td>443, 80, SSH(op-ip)</td><td>443, 80</td><td>Traffic redirector (socat/nginx)</td></tr>
+            <tr><td><code>bastion</code></td><td>SSH(op-ip) only</td><td>all</td><td>Jump host</td></tr>
+            <tr><td><code>lockdown</code></td><td>SSH(op-ip) only</td><td>none</td><td>Fully locked node</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="terminal">
+        <div class="terminal-bar"><span class="tl tl-r"></span><span class="tl tl-y"></span><span class="tl tl-g"></span><span class="terminal-title">terminal</span><button class="copy-btn" onclick="copyTerminal(this)"><svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25v-7.5z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25v-7.5zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25h-7.5z"/></svg>copy</button></div>
+        <div class="terminal-body">
+<span class="dm"># Apply the c2 preset - SSH restricted to your IP only</span>
+<span class="p">$ </span><span class="c">do-manager firewall preset c2 \</span>
+<span class="o">    --name c2-fw \</span>
+<span class="o">    --droplets 12345678 \</span>
+<span class="o">    --operator-ip 203.0.113.1</span>
+<span class="ok">✓ Firewall preset c2 applied</span>
+<span class="o">  ID:     abc-123</span>
+<span class="o">  Rules:  5 inbound  3 outbound</span>
+</div>
+      </div>
+    </section>
+
+    <hr />
+
+    <!-- TEMPLATES -->
+    <section id="templates" class="reveal">
+      <h2>Templates</h2>
+      <p>
+        Built-in cloud-init bash scripts embedded directly in the binary.
+        Each script installs and configures a specific tool (C2, redirector, VPN, phishing)
+        and is ready to run at Droplet first boot via DigitalOcean's cloud-init mechanism.
+      </p>
+      <p style="margin-top:.75rem">
+        Variable substitution uses Go's <code>text/template</code> (<code>&#123;&#123;.VarName&#125;&#125;</code> syntax).
+        Every variable has a declared default in the script header — unset variables silently
+        fall back to their defaults. Use <code>--template-var KEY=VALUE</code> to override.
+      </p>
+
+      <h3>Available templates</h3>
+      <div class="table-scroll">
+        <table class="flags-table">
+          <thead><tr><th>Name</th><th>Description</th><th>Key variables</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><code>c2-havoc</code></td>
+              <td>Havoc C2 framework - build from source, teamserver as systemd service</td>
+              <td><code>C2Port</code> <code>C2Host</code> <code>TeamserverPassword</code></td>
+            </tr>
+            <tr>
+              <td><code>c2-sliver</code></td>
+              <td>Sliver C2 - download latest release, generate operator config, systemd</td>
+              <td><code>C2Port</code> <code>OperatorName</code></td>
+            </tr>
+            <tr>
+              <td><code>redirector-nginx</code></td>
+              <td>nginx HTTPS reverse proxy with URI path filtering. certbot or self-signed TLS.</td>
+              <td><code>C2BackendHost</code> <code>Domain</code> <code>C2URIPath</code></td>
+            </tr>
+            <tr>
+              <td><code>redirector-apache</code></td>
+              <td>Apache2 mod_rewrite with User-Agent + URI filtering for C2 profile matching</td>
+              <td><code>C2BackendHost</code> <code>C2UserAgent</code> <code>C2URIPath</code></td>
+            </tr>
+            <tr>
+              <td><code>wireguard-server</code></td>
+              <td>WireGuard VPN server — generates server keypair, configures wg0, enables IP forwarding</td>
+              <td><code>WGListenPort</code> <code>WGServerNet</code></td>
+            </tr>
+            <tr>
+              <td><code>wireguard-client</code></td>
+              <td>WireGuard peer — connects to a WireGuard server, prints client pubkey for server registration</td>
+              <td><code>WGServerEndpoint</code> <code>WGServerPublicKey</code> <code>WGClientNet</code></td>
+            </tr>
+            <tr>
+              <td><code>gophish</code></td>
+              <td>GoPhish phishing framework — latest release, admin panel bound to 127.0.0.1 only</td>
+              <td><code>AdminListenPort</code> <code>PhishListenPort</code></td>
+            </tr>
+            <tr>
+              <td><code>evilginx2</code></td>
+              <td>evilginx2 reverse proxy phishing — latest release, auto-detects public IP if not set</td>
+              <td><code>Domain</code> <code>ExternalIP</code> <code>RedirectURL</code></td>
+            </tr>
+            <tr>
+              <td><code>hardening</code></td>
+              <td>SSH hardening, fail2ban, non-root operator user creation with SSH key injection</td>
+              <td><code>SSHPort</code> <code>OperatorUser</code> <code>OperatorPubKey</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Commands</h3>
+      <div class="terminal">
+        <div class="terminal-bar"><span class="tl tl-r"></span><span class="tl tl-y"></span><span class="tl tl-g"></span><span class="terminal-title">template list / show / dump</span><button class="copy-btn" onclick="copyTerminal(this)"><svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25v-7.5z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25v-7.5zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25h-7.5z"/></svg>copy</button></div>
+        <div class="terminal-body">
+<span class="dm"># List all templates with variables and defaults</span>
+<span class="p">$ </span><span class="c">do-manager template list</span>
+<span class="hd">&gt;&gt;  9 template(s)</span>
+<span class="o">  NAME               | DESCRIPTION                              | VARIABLES (DEFAULT)</span>
+<span class="o">  c2-havoc           | Havoc C2 framework ...                   | C2Port=443  C2Host  TeamserverPassword=...</span>
+<span class="o">  redirector-nginx   | nginx HTTPS reverse proxy ...            | C2BackendHost=10.20.0.2  Domain  ...</span>
+<span class="o">  wireguard-server   | WireGuard VPN server ...                 | WGListenPort=51820  WGServerNet=...</span>
+<span class="o">  ...</span>
+<span class="dm"># Inspect raw script before deploying</span>
+<span class="p">$ </span><span class="c">do-manager template show redirector-nginx</span>
+<span class="dm"># Preview rendered output with your variable values</span>
+<span class="p">$ </span><span class="c">do-manager template dump c2-havoc \</span>
+<span class="o">    --template-var C2Host=1.2.3.4 \</span>
+<span class="o">    --template-var TeamserverPassword=s3cr3t</span>
+        </div>
+      </div>
+
+      <h3>Deploy a single node with a template</h3>
+      <div class="terminal">
+        <div class="terminal-bar"><span class="tl tl-r"></span><span class="tl tl-y"></span><span class="tl tl-g"></span><span class="terminal-title">droplet create --template</span><button class="copy-btn" onclick="copyTerminal(this)"><svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25v-7.5z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25v-7.5zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25h-7.5z"/></svg>copy</button></div>
+        <div class="terminal-body">
+<span class="dm"># Spin up a GoPhish node in one command</span>
+<span class="p">$ </span><span class="c">do-manager droplet create \</span>
+<span class="o">    --name phish-01 --region fra1 --image ubuntu-22-04-x64 \</span>
+<span class="o">    --template gophish \</span>
+<span class="o">    --template-var AdminListenPort=3333 \</span>
+<span class="o">    --wait</span>
+<span class="ok">✓ phish-01  active  167.99.10.1</span>
+<span class="dm"># Access the admin panel via SSH tunnel (admin is bound to 127.0.0.1 only)</span>
+<span class="p">$ </span><span class="c">ssh -L 3333:127.0.0.1:3333 root@167.99.10.1</span>
+<span class="dm"># Then open https://127.0.0.1:3333 in your browser</span>
+        </div>
+      </div>
+
+      <h3>Full campaign with templates per role</h3>
+      <div class="terminal">
+        <div class="terminal-bar"><span class="tl tl-r"></span><span class="tl tl-y"></span><span class="tl tl-g"></span><span class="terminal-title">campaign deploy with template= in role spec</span><button class="copy-btn" onclick="copyTerminal(this)"><svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25v-7.5z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25v-7.5zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25h-7.5z"/></svg>copy</button></div>
+        <div class="terminal-body">
+<span class="dm"># 1 Havoc C2 + 3 nginx redirectors, VPC isolated, fresh ubuntu images</span>
+<span class="p">$ </span><span class="c">do-manager campaign deploy \</span>
+<span class="o">    --name op-phantom \</span>
+<span class="o">    --region fra1 \</span>
+<span class="o">    --operator-ip 203.0.113.5 \</span>
+<span class="o">    --vpc-auto \</span>
+<span class="o">    --role "c2:count=1:image=ubuntu-22-04-x64:preset=c2:template=c2-havoc" \</span>
+<span class="o">    --role "redirector:count=3:image=ubuntu-22-04-x64:preset=redirector:reserve-ips:template=redirector-nginx" \</span>
+<span class="o">    --template-var C2BackendHost=10.10.0.2 \</span>
+<span class="o">    --template-var Domain=cdn.example.com \</span>
+<span class="o">    --template-var TeamserverPassword=s3cr3t</span>
+<span class="ok">✓ VPC created: op-phantom-vpc  10.10.0.0/20</span>
+<span class="ok">✓ Role c2: 1 Droplet(s) created  Havoc installing at first boot</span>
+<span class="ok">✓ Role redirector: 3 Droplet(s) created  nginx installing at first boot  ips=3</span>
+<span class="dm"># --template-var values are shared across all roles</span>
+<span class="dm"># C2BackendHost is used by redirector-nginx, TeamserverPassword by c2-havoc</span>
+        </div>
+      </div>
+
+      <div class="callout">
+        <strong>WireGuard workflow</strong><br><br>
+        WireGuard requires a two-step key exchange. Deploy the C2 with
+        <code>template=wireguard-server</code> first. The cloud-init script prints the server public key
+        in the boot logs (<code>journalctl -u cloud-init</code>). Then deploy the redirector with
+        <code>template=wireguard-client</code> and pass the server public key via
+        <code>--template-var WGServerPublicKey=&lt;key&gt;</code>.
+      </div>
+    </section>
+
+    <hr />
+
+    <!-- AUDIT -->
+    <section id="audit" class="reveal">
+      <h2>Audit</h2>
+      <p>
+        Scan your account for security misconfigurations and hygiene issues.
+        Exits with code <code>1</code> on any CRITICAL or HIGH finding - integrates cleanly into CI/CD pipelines and monitoring scripts.
+      </p>
+
+      <h3>What it checks</h3>
+      <div class="table-scroll">
+        <table class="flags-table">
+          <thead><tr><th>Severity</th><th>Check</th></tr></thead>
+          <tbody>
+            <tr><td><span style="color:var(--red);font-weight:700;font-family:var(--mono);font-size:.8rem">CRITICAL</span></td><td>Droplets with no firewall attached (fully exposed)</td></tr>
+            <tr><td><span style="color:#f97316;font-weight:700;font-family:var(--mono);font-size:.8rem">HIGH</span></td><td>Firewall rule exposes port 22/3389/5900 to <code>0.0.0.0/0</code></td></tr>
+            <tr><td><span style="color:var(--yellow);font-family:var(--mono);font-size:.8rem">MEDIUM</span></td><td>Reserved IP not assigned to any Droplet (idle billing)</td></tr>
+            <tr><td><span style="color:var(--blue);font-family:var(--mono);font-size:.8rem">INFO</span></td><td>Snapshot older than <code>--max-snapshot-age</code> days (default 90)</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="terminal">
+        <div class="terminal-bar"><span class="tl tl-r"></span><span class="tl tl-y"></span><span class="tl tl-g"></span><span class="terminal-title">terminal</span><button class="copy-btn" onclick="copyTerminal(this)"><svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25v-7.5z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25v-7.5zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25h-7.5z"/></svg>copy</button></div>
+        <div class="terminal-body">
+<span class="p">$ </span><span class="c">do-manager audit</span>
+<span class="hd">&gt;&gt; Audit results for 5 droplet(s)  3 firewall(s)  8 snap(s)  4 reserved IP(s)</span>
+<span class="o">  Severity  | Resource    | ID                        | Finding</span>
+<span class="er">  CRITICAL  | droplet     | worker-04 (ID=98765)      | No firewall attached  public_ip=10.1.2.3</span>
+<span class="wn">  HIGH      | firewall    | dev-fw                    | Inbound rule exposes port 22 to 0.0.0.0/0</span>
+<span class="wn">  MEDIUM    | reserved_ip | 167.99.10.5               | Not assigned to any Droplet (idle billing)</span>
+<span class="dm">  3 finding(s) total</span>
+<span class="dm"># Exit code 1 - usable in CI / monitoring scripts</span>
+<span class="p">$ </span><span class="c">do-manager audit --max-snapshot-age 30 -o json | jq '.findings[]'</span>
+        </div>
+      </div>
+    </section>
+
+    <hr />
+
+    <!-- LIBRARY -->
+    <section id="library" class="reveal">
+      <h2>Library Usage</h2>
+      <p>
+        The <code>pkg/</code> packages are designed to be imported in other Go projects.
+        Each package is stateless and accepts a <code>context.Context</code> on every call.
+      </p>
+
+      <div class="terminal">
+        <div class="terminal-bar">
+          <span class="tl tl-r"></span><span class="tl tl-y"></span><span class="tl tl-g"></span>
+          <span class="terminal-title">your-project/main.go</span>
+          <button class="copy-btn" onclick="copyTerminal(this)"><svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25v-7.5z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25v-7.5zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25h-7.5z"/></svg>copy</button>
+        </div>
+        <div class="terminal-body">
+<span class="fl">import</span><span class="o"> (</span>
+<span class="o">    </span><span class="ok">"context"</span>
+<span class="o">    </span><span class="ok">"os"</span>
+<span class="dm"></span>
+<span class="o">    </span><span class="ok">"github.com/franckferman/do-manager/pkg/client"</span>
+<span class="o">    </span><span class="ok">"github.com/franckferman/do-manager/pkg/droplet"</span>
+<span class="o">    </span><span class="ok">"github.com/franckferman/do-manager/pkg/vpc"</span>
+<span class="o">    </span><span class="ok">"github.com/franckferman/do-manager/pkg/dns"</span>
+<span class="o">    </span><span class="ok">"github.com/franckferman/do-manager/pkg/firewall"</span>
+<span class="o">    </span><span class="ok">"github.com/franckferman/do-manager/pkg/reservedip"</span>
+<span class="o">    </span><span class="ok">"github.com/franckferman/do-manager/pkg/snapshot"</span>
+<span class="o">    </span><span class="ok">"github.com/franckferman/do-manager/pkg/sshkey"</span>
+<span class="o">    </span><span class="ok">"github.com/franckferman/do-manager/pkg/region"</span>
+<span class="o">    </span><span class="ok">"github.com/franckferman/do-manager/pkg/tmpl"</span>
+<span class="o">)</span>
+<span class="dm"></span>
+<span class="fl">func</span><span class="o"> main() {</span>
+<span class="o">    </span><span class="dm">// Build an authenticated godo client</span>
+<span class="o">    c, _ := client.New(os.Getenv(</span><span class="ok">"DO_TOKEN"</span><span class="o">))</span>
+<span class="o">    ctx  := context.Background()</span>
+<span class="dm"></span>
+<span class="o">    </span><span class="dm">// Droplets</span>
+<span class="o">    svc      := droplet.New(c)</span>
+<span class="o">    list, _  := svc.List(ctx)</span>
+<span class="o">    d, _     := svc.Create(ctx, droplet.CreateOptions{</span>
+<span class="o">        Name: </span><span class="ok">"worker-01"</span><span class="o">, Region: </span><span class="ok">"fra1"</span><span class="o">,</span>
+<span class="o">        Size: </span><span class="ok">"s-1vcpu-1gb"</span><span class="o">, Image: </span><span class="ok">"ubuntu-22-04-x64"</span><span class="o">,</span>
+<span class="o">    })</span>
+<span class="dm"></span>
+<span class="o">    </span><span class="dm">// Batch: 5 in parallel, names become worker-01..worker-05</span>
+<span class="o">    results := svc.CreateBatch(ctx, droplet.CreateOptions{Name: </span><span class="ok">"worker"</span><span class="o">}, </span><span class="vl">5</span><span class="o">)</span>
+<span class="dm"></span>
+<span class="o">    </span><span class="dm">// SSH keys</span>
+<span class="o">    keys, _ := sshkey.New(c).List(ctx)</span>
+<span class="dm"></span>
+<span class="o">    </span><span class="dm">// Regions / sizes / images</span>
+<span class="o">    reg     := region.New(c)</span>
+<span class="o">    regions, _ := reg.ListRegions(ctx)</span>
+<span class="o">    sizes,   _ := reg.ListSizes(ctx)</span>
+<span class="o">    images,  _ := reg.ListImages(ctx, </span><span class="ok">"distribution"</span><span class="o">)</span>
+<span class="dm"></span>
+<span class="dm">    // Templates</span>
+<span class="o">    metas, _ := tmpl.List()</span>
+<span class="o">    script, _ := tmpl.Render(</span><span class="vl">"redirector-nginx"</span><span class="o">, map[string]string{</span>
+<span class="vl">        "C2BackendHost"</span><span class="o">: </span><span class="vl">"10.20.0.2"</span><span class="o">, </span><span class="vl">"Domain"</span><span class="o">: </span><span class="vl">"cdn.example.com"</span><span class="o">,</span>
+<span class="o">    })</span>
+<span class="dm"></span>
+<span class="o">    _ = list; _ = d; _ = results; _ = keys; _ = regions; _ = sizes; _ = images; _ = metas; _ = script</span>
+<span class="o">}</span>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ============================================================= FOOTER -->
+<footer>
+  <div class="footer-inner">
+    <span>do-manager &nbsp;·&nbsp; <a href="https://github.com/franckferman/do-manager/blob/stable/LICENSE" target="_blank" rel="noopener">AGPL-3.0</a></span>
+    <span>Built with <a href="https://github.com/digitalocean/godo" target="_blank" rel="noopener">godo</a> &nbsp;·&nbsp; <a href="https://github.com/franckferman/do-manager" target="_blank" rel="noopener">GitHub</a></span>
+  </div>
+</footer>
+
+<script>
+  /* ---- Tab switching ---- */
+  function switchTab(groupId, btn, paneId) {
+    const group = document.getElementById(groupId);
+    group.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    group.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(paneId).classList.add('active');
+  }
+
+  /* ---- Copy button ---- */
+  function copyTerminal(btn) {
+    const body = btn.closest('.terminal').querySelector('.terminal-body');
+    const text = body.innerText.replace(/^\$\s?/gm, '').trim();
+    navigator.clipboard.writeText(text).then(() => {
+      btn.classList.add('copied');
+      btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg> copied';
+      setTimeout(() => {
+        btn.classList.remove('copied');
+        btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25v-7.5z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25v-7.5zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25h-7.5z"/></svg> copy';
+      }, 2000);
+    });
+  }
+
+  /* ---- Mobile nav ---- */
+  const hamburger = document.getElementById('hamburger');
+  const mobileMenu = document.getElementById('mobile-menu');
+  hamburger.addEventListener('click', () => {
+    mobileMenu.classList.toggle('open');
+    const open = mobileMenu.classList.contains('open');
+    hamburger.setAttribute('aria-expanded', open);
+    document.body.style.overflow = open ? 'hidden' : '';
+  });
+  function closeMobile() {
+    mobileMenu.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  /* ---- Scroll reveal ---- */
+  const revealObs = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); revealObs.unobserve(e.target); } });
+  }, { threshold: 0.07 });
+  document.querySelectorAll('.reveal').forEach(el => revealObs.observe(el));
+
+  /* ---- Sidebar scroll spy ---- */
+  const slinks  = document.querySelectorAll('.sidebar .slink');
+  const targets = [...slinks]
+    .map(l => document.getElementById(l.getAttribute('href').slice(1)))
+    .filter(Boolean)
+    .sort((a, b) => a.offsetTop - b.offsetTop);
+
+  function updateSpy() {
+    const offset = 80;
+    let current = null;
+    targets.forEach(el => {
+      if (el.getBoundingClientRect().top <= offset) current = el.id;
+    });
+    slinks.forEach(l => l.classList.remove('active'));
+    if (current) {
+      const a = document.querySelector(`.sidebar .slink[href="#${current}"]`);
+      if (a) a.classList.add('active');
+    }
+  }
+  window.addEventListener('scroll', updateSpy, { passive: true });
+  updateSpy();
+
+  /* ---- Hero terminal animation ---- */
+  const typeLines = [
+    'droplet create --name web-01 --region fra1 --size s-1vcpu-1gb --wait',
+    'droplet list -o json | jq \'.[].networks.v4[0].ip_address\'',
+    'campaign deploy --name op-ghost --role "c2:preset=c2:template=c2-havoc" --role "redir:preset=redirector:reserve-ips" --vpc-auto',
+    'dns add --domain example.com --type A --name @ --data 1.2.3.4',
+    'campaign rotate-ips --name op-ghost',
+    'template list',
+    'firewall preset redirector --name redir-fw --operator-ip 203.0.113.5',
+    'audit',
+    'droplet exec --tag lab -- "uname -r"',
+    'vpc create --name c2-net --region fra1 --ip-range 10.20.0.0/24',
+  ];
+
+  let typeLineIndex = 0;
+  const frames = [
+    { cmd: typeLines[0], delay: 60 },
+  ];
+
+  const output = [
+    '',
+    '>> Creating 3 Droplets in parallel  [base=lab  region=fra1]',
+    '<ok>  ✓</ok> lab-01   ID=111111111   status=<wn>new</wn>',
+    '<ok>  ✓</ok> lab-02   ID=222222222   status=<wn>new</wn>',
+    '<ok>  ✓</ok> lab-03   ID=333333333   status=<wn>new</wn>',
+    '',
+    '<wn>~</wn> Waiting for 3 Droplet(s) to become active...........',
+    '<ok>  ✓</ok> ID=111111111   IPv4=<ok>10.131.0.1</ok>',
+    '<ok>  ✓</ok> ID=222222222   IPv4=<ok>10.131.0.2</ok>',
+    '<ok>  ✓</ok> ID=333333333   IPv4=<ok>10.131.0.3</ok>',
+  ];
+
+  const typeLine = document.getElementById('type-line');
+  const cursor   = document.getElementById('cursor');
+  const termBody = document.getElementById('hero-term');
+
+  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  function colorize(line) {
+    return line
+      .replace(/<ok>(.*?)<\/ok>/g, '<span class="ok">$1</span>')
+      .replace(/<wn>(.*?)<\/wn>/g, '<span class="wn">$1</span>');
+  }
+
+  async function runAnimation() {
+    while (true) {
+      // Clear
+      typeLine.textContent = '';
+      cursor.style.display = 'inline-block';
+      // Remove old output lines
+      termBody.querySelectorAll('.anim-line').forEach(el => el.remove());
+
+      // Type the command
+      frames[0].cmd = typeLines[typeLineIndex % typeLines.length];
+      typeLineIndex++;
+      const cmd = frames[0].cmd;
+      for (let i = 0; i < cmd.length; i++) {
+        typeLine.textContent += cmd[i];
+        await sleep(frames[0].delay * (Math.random() * 0.8 + 0.6));
+      }
+      await sleep(400);
+
+      // Hide cursor, "press enter"
+      cursor.style.display = 'none';
+
+      // Show output lines one by one
+      for (const line of output) {
+        await sleep(line === '' ? 80 : 180);
+        const el = document.createElement('div');
+        el.className = 'anim-line';
+        el.innerHTML = colorize(line);
+        termBody.insertBefore(el, cursor.parentNode.nextSibling || null);
+        termBody.appendChild(el);
+      }
+
+      // Wait before restart
+      await sleep(4000);
+
+      // Fade out
+      termBody.querySelectorAll('.anim-line').forEach(el => {
+        el.style.transition = 'opacity .4s';
+        el.style.opacity = '0';
+      });
+      await sleep(500);
+    }
+  }
+
+  // Start animation after short delay
+  setTimeout(runAnimation, 800);
+</script>
+
+<footer>
+  <div class="footer-inner">
+    <span>do-manager v1.0.0</span>
+    <span class="footer-sep">|</span>
+    <span>by <a href="https://github.com/franckferman" target="_blank" rel="noopener">Franck Ferman</a></span>
+    <span class="footer-sep">|</span>
+    <a href="https://github.com/franckferman/do-manager" target="_blank" rel="noopener">GitHub</a>
+    <span class="footer-sep">|</span>
+    <a href="https://github.com/franckferman/do-manager/blob/stable/LICENSE" target="_blank" rel="noopener">AGPL-3.0</a>
+  </div>
+</footer>
+
+</body>
+</html>

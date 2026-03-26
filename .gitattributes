@@ -1,0 +1,5 @@
+# Exclude docs from GitHub language statistics
+docs/** linguist-documentation=true
+
+# Treat shell templates as non-code for stats (they inflate Shell %)
+pkg/tmpl/scripts/*.sh linguist-vendored=true

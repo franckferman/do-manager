@@ -1,0 +1,36 @@
+# Binaries
+do-manager
+do-manager.exe
+dist/
+
+# Env / config
+.env
+.env.local
+.do-manager.yaml
+
+# Go
+*.test
+*.out
+vendor/
+
+# Logs
+*.log
+nohup.out
+
+# Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+._*
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+# Project
+CLAUDE.md
