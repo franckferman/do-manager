@@ -23,15 +23,16 @@ func New(client *godo.Client) *Service {
 
 // CreateOptions holds all parameters for provisioning a Droplet.
 type CreateOptions struct {
-	Name     string
-	Region   string
-	Size     string
-	Image    string
-	SSHKeys  []int
-	Tags     []string
-	UserData string
-	IPv6     bool
-	Backups  bool
+	Name       string
+	Region     string
+	Size       string
+	Image      string
+	SSHKeys    []int
+	Tags       []string
+	UserData   string
+	IPv6       bool
+	Backups    bool
+	Monitoring bool
 	// VPCUUID places the Droplet inside a specific VPC.
 	// Leave empty to use the region's default VPC.
 	VPCUUID string
@@ -45,16 +46,17 @@ func (s *Service) Create(ctx context.Context, opts CreateOptions) (*godo.Droplet
 	}
 
 	req := &godo.DropletCreateRequest{
-		Name:     opts.Name,
-		Region:   opts.Region,
-		Size:     opts.Size,
-		Image:    godo.DropletCreateImage{Slug: opts.Image},
-		SSHKeys:  keys,
-		Tags:     opts.Tags,
-		UserData: opts.UserData,
-		IPv6:     opts.IPv6,
-		Backups:  opts.Backups,
-		VPCUUID:  opts.VPCUUID,
+		Name:       opts.Name,
+		Region:     opts.Region,
+		Size:       opts.Size,
+		Image:      godo.DropletCreateImage{Slug: opts.Image},
+		SSHKeys:    keys,
+		Tags:       opts.Tags,
+		UserData:   opts.UserData,
+		IPv6:       opts.IPv6,
+		Backups:    opts.Backups,
+		Monitoring: opts.Monitoring,
+		VPCUUID:    opts.VPCUUID,
 	}
 
 	d, _, err := s.client.Droplets.Create(ctx, req)

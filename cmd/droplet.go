@@ -166,31 +166,33 @@ var dropletRebootCmd = &cobra.Command{
 // ---------------------------------------------------------------------------
 
 var (
-	createName     string
-	createRegion   string
-	createSize     string
-	createImage    string
-	createSSHKeys  []int
-	createTags     []string
+	createName         string
+	createRegion       string
+	createSize         string
+	createImage        string
+	createGPU          string
+	createSSHKeys      []int
+	createTags         []string
 	createUserData     string
 	createUserDataFile string
 	createVPCUUID      string
 	createIPv6         bool
+	createMonitoring   bool
 	rebuildImage       string
 	rebuildWait        bool
-	createBackups  bool
-	createWait     bool
-	createCount    int
-	deleteForce    bool
-	deleteTag      string
-	ipsTag         string
-	execTag        string
-	execUser       string
-	sshUser        string
-	sshPort        int
-	createTemplate    string
-	createTemplateVar []string
-	createPassword    string
+	createBackups      bool
+	createWait         bool
+	createCount        int
+	deleteForce        bool
+	deleteTag          string
+	ipsTag             string
+	execTag            string
+	execUser           string
+	sshUser            string
+	sshPort            int
+	createTemplate     string
+	createTemplateVar  []string
+	createPassword     string
 )
 
 func init() {
@@ -199,6 +201,7 @@ func init() {
 	dropletCreateCmd.Flags().StringVarP(&createRegion, "region", "r", "nyc1", "Region slug (e.g. nyc1, ams3, fra1)")
 	dropletCreateCmd.Flags().StringVarP(&createSize, "size", "s", "s-1vcpu-1gb", "Size slug (e.g. s-1vcpu-1gb, s-2vcpu-4gb)")
 	dropletCreateCmd.Flags().StringVarP(&createImage, "image", "i", "ubuntu-22-04-x64", "Image slug (e.g. ubuntu-22-04-x64)")
+	dropletCreateCmd.Flags().StringVar(&createGPU, "gpu", "", "GPU preset: h100 | h100x8 (sets size + AI/ML image + GPU region, warns on cost)")
 	dropletCreateCmd.Flags().IntSliceVar(&createSSHKeys, "ssh-keys", nil, "SSH key IDs to embed (comma-separated)")
 	dropletCreateCmd.Flags().StringSliceVar(&createTags, "tags", nil, "Tags to apply (comma-separated)")
 	dropletCreateCmd.Flags().StringVar(&createUserData, "user-data", "", "Cloud-init script content (inline)")
@@ -207,6 +210,7 @@ func init() {
 	dropletCreateCmd.Flags().StringVar(&createTemplate, "template", "", "Built-in cloud-init template (see: do-manager template list)")
 	dropletCreateCmd.Flags().StringArrayVar(&createTemplateVar, "template-var", nil, "Template variable: KEY=VALUE (repeatable, used with --template or --user-data-file)")
 	dropletCreateCmd.Flags().BoolVar(&createIPv6, "ipv6", false, "Enable IPv6")
+	dropletCreateCmd.Flags().BoolVar(&createMonitoring, "monitoring", false, "Enable the DO metrics agent (parity with doctl --enable-monitoring)")
 	dropletCreateCmd.Flags().BoolVar(&createBackups, "backups", false, "Enable automatic backups")
 	dropletCreateCmd.Flags().BoolVarP(&createWait, "wait", "w", false, "Wait until the Droplet is active and print its IP")
 	dropletCreateCmd.Flags().IntVarP(&createCount, "count", "c", 1, "Number of Droplets to provision in parallel (names become name-01, name-02, ...)")
@@ -489,6 +493,30 @@ func runDropletCreate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("--count must be >= 1")
 	}
 
+	if createGPU != "" {
+		plan, err := droplet.LookupGPU(createGPU)
+		if err != nil {
+			return err
+		}
+		createSize = plan.Size
+		if !cmd.Flags().Changed("image") { // GPU needs the AI/ML image unless overridden
+			createImage = plan.Image
+		}
+		if !plan.ValidRegion(createRegion) {
+			if !cmd.Flags().Changed("region") { // default region -> pick a GPU one
+				createRegion = plan.DefaultRegion()
+			} else {
+				return fmt.Errorf("region %q offers no %s GPU (valid: %s)",
+					createRegion, plan.Model, strings.Join(plan.Regions, ", "))
+			}
+		}
+		if !isJSON() {
+			fmt.Printf("%s GPU %s  ~$%.2f/hr  [size=%s image=%s region=%s]  — destroy it when done: do-manager droplet delete\n",
+				color.YellowString("!!"), plan.Model, plan.Hourly,
+				createSize, createImage, createRegion)
+		}
+	}
+
 	ud, err := resolveCloudInit(createUserData, createUserDataFile, createTemplate, parseTmplVars(createTemplateVar))
 	if err != nil {
 		return err
@@ -503,16 +531,17 @@ func runDropletCreate(cmd *cobra.Command, args []string) error {
 	}
 
 	opts := droplet.CreateOptions{
-		Name:     createName,
-		Region:   createRegion,
-		Size:     createSize,
-		Image:    createImage,
-		SSHKeys:  createSSHKeys,
-		Tags:     createTags,
-		UserData: ud,
-		IPv6:     createIPv6,
-		Backups:  createBackups,
-		VPCUUID:  createVPCUUID,
+		Name:       createName,
+		Region:     createRegion,
+		Size:       createSize,
+		Image:      createImage,
+		SSHKeys:    createSSHKeys,
+		Tags:       createTags,
+		UserData:   ud,
+		IPv6:       createIPv6,
+		Backups:    createBackups,
+		Monitoring: createMonitoring,
+		VPCUUID:    createVPCUUID,
 	}
 
 	if createCount == 1 {
@@ -747,8 +776,8 @@ func waitForActive(svc *droplet.Service, id int) error {
 // Returns a map[id]ipv4 (empty string on timeout).
 func waitForActiveMany(svc *droplet.Service, ids []int) map[int]string {
 	type result struct {
-		id  int
-		ip  string
+		id int
+		ip string
 	}
 	ch := make(chan result, len(ids))
 
