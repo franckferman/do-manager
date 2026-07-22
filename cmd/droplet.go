@@ -499,8 +499,14 @@ func runDropletCreate(cmd *cobra.Command, args []string) error {
 			return err
 		}
 		createSize = plan.Size
-		if !cmd.Flags().Changed("image") { // GPU needs the AI/ML image unless overridden
+		aimlImage := !cmd.Flags().Changed("image")
+		if aimlImage { // GPU needs the AI/ML image unless overridden
 			createImage = plan.Image
+		}
+		// AI/ML GPU images have no root password -> DO rejects (422) without an SSH key.
+		if aimlImage && len(createSSHKeys) == 0 {
+			return fmt.Errorf("GPU AI/ML image %q requires an SSH key — add one with --ssh-keys "+
+				"(list IDs: do-manager ssh-key list)", createImage)
 		}
 		if !plan.ValidRegion(createRegion) {
 			if !cmd.Flags().Changed("region") { // default region -> pick a GPU one
