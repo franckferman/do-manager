@@ -26,6 +26,9 @@ var gpuRegions = []string{"nyc2", "tor1", "atl1", "ams3"}
 var gpuPlans = map[string]GPUPlan{
 	"h100":   {"h100", "gpu-h100x1-80gb", "gpu-h100x1-base", 3.39, gpuRegions},
 	"h100x8": {"h100x8", "gpu-h100x8-640gb", "gpu-h100x8-base", 23.92, gpuRegions},
+	// L40S: cheaper single GPU, plenty for hashcat. Slug verified; single-GPU image
+	// is the shared gpu-h100x1-base. (RTX 6000/4000 Ada slugs unverified -> not added.)
+	"l40s": {"l40s", "gpu-l40sx1-48gb", "gpu-h100x1-base", 1.57, gpuRegions},
 }
 
 // GPUPresets returns the known preset names, sorted.

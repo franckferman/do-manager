@@ -43,3 +43,16 @@ func TestGPUPresetsSorted(t *testing.T) {
 		t.Errorf("presets = %v, want sorted starting with h100", ps)
 	}
 }
+
+func TestLookupL40S(t *testing.T) {
+	p, err := LookupGPU("l40s")
+	if err != nil {
+		t.Fatalf("LookupGPU(l40s): %v", err)
+	}
+	if p.Size != "gpu-l40sx1-48gb" {
+		t.Errorf("size = %q, want gpu-l40sx1-48gb", p.Size)
+	}
+	if p.Image != "gpu-h100x1-base" { // shared single-GPU AI/ML image
+		t.Errorf("image = %q, want gpu-h100x1-base", p.Image)
+	}
+}
