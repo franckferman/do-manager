@@ -2,6 +2,8 @@
 # @name: crackbox
 # @desc: GPU password-cracking box - hashcat + hcxtools + hashcat-utils, multiple rule sets, cupp/cewl/duplicut, wordlists staged
 # @var: WordlistURL= - Optional extra wordlist to fetch (weakpass/SecLists .gz URL); rockyou is always staged
+# @var: SpacesBucket= - Optional DO Spaces bucket of pre-staged wordlists to mount via s3fs (no re-download; needs SPACES_KEY/SPACES_SECRET in env)
+# @var: SpacesEndpoint=nyc3.digitaloceanspaces.com - DO Spaces endpoint for --template-var SpacesBucket
 # @var: CrackDir=/opt/crack - Base directory for wordlists, rules, tools and captures
 set -uo pipefail
 export DEBIAN_FRONTEND=noninteractive
@@ -41,6 +43,19 @@ clone https://github.com/n0kovo/hashcat-rules-collection.git n0kovo-collection
 
 # --- wordlists --------------------------------------------------------------
 cd "{{.CrackDir}}/wordlists"
+# Pre-staged wordlists via DO Spaces (s3fs): mount once, no re-download at $/hr.
+# Opt-in; needs SPACES_KEY/SPACES_SECRET in the environment (tradeoff: creds on the box).
+# Simpler alternative: build this box once, snapshot it (do-manager snapshot), reuse the snapshot.
+if [ -n "{{.SpacesBucket}}" ] && [ -n "${SPACES_KEY:-}" ] && [ -n "${SPACES_SECRET:-}" ]; then
+    apt-get install -y s3fs && {
+        echo "$SPACES_KEY:$SPACES_SECRET" > /etc/passwd-s3fs; chmod 600 /etc/passwd-s3fs
+        s3fs "{{.SpacesBucket}}" "{{.CrackDir}}/wordlists" \
+            -o url="https://{{.SpacesEndpoint}}" -o use_path_request_style \
+            && echo "[+] Spaces wordlists mounted" || warn "s3fs mount failed"
+    } || warn "s3fs install failed"
+elif [ -n "{{.SpacesBucket}}" ]; then
+    warn "SpacesBucket set but SPACES_KEY/SPACES_SECRET not in env — skipping mount"
+fi
 [ -f rockyou.txt ] || wget -q https://github.com/brannondorsey/naive-hashcat/releases/download/data/rockyou.txt -O rockyou.txt || warn "rockyou fetch failed"
 if [ -n "{{.WordlistURL}}" ]; then
     f="$(basename '{{.WordlistURL}}')"
