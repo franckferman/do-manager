@@ -178,6 +178,7 @@ var (
 	createVPCUUID      string
 	createIPv6         bool
 	createMonitoring   bool
+	createTTL          int
 	rebuildImage       string
 	rebuildWait        bool
 	createBackups      bool
@@ -211,6 +212,7 @@ func init() {
 	dropletCreateCmd.Flags().StringArrayVar(&createTemplateVar, "template-var", nil, "Template variable: KEY=VALUE (repeatable, used with --template or --user-data-file)")
 	dropletCreateCmd.Flags().BoolVar(&createIPv6, "ipv6", false, "Enable IPv6")
 	dropletCreateCmd.Flags().BoolVar(&createMonitoring, "monitoring", false, "Enable the DO metrics agent (parity with doctl --enable-monitoring)")
+	dropletCreateCmd.Flags().IntVar(&createTTL, "ttl", 0, "Dead-man switch: self-destruct after N minutes (injects the API token into user-data)")
 	dropletCreateCmd.Flags().BoolVar(&createBackups, "backups", false, "Enable automatic backups")
 	dropletCreateCmd.Flags().BoolVarP(&createWait, "wait", "w", false, "Wait until the Droplet is active and print its IP")
 	dropletCreateCmd.Flags().IntVarP(&createCount, "count", "c", 1, "Number of Droplets to provision in parallel (names become name-01, name-02, ...)")
@@ -469,6 +471,29 @@ func runDropletGet(cmd *cobra.Command, args []string) error {
 // sshd_config.d overrides automatically via ssh_pwauth).
 // If existing script is provided: wraps both into a multipart MIME doc so
 // cloud-init processes the cloud-config AND the bash script.
+// injectTTL prepends a dead-man switch: the Droplet self-DELETEs after ttlMin
+// minutes via the DO API (metadata ID + token), so a forgotten box stops billing.
+// Note: this writes the API token into the Droplet's user-data — acceptable for an
+// ephemeral box you destroy anyway, but a real exposure; use on throwaway infra.
+func injectTTL(script string, ttlMin int, token string) string {
+	deadman := fmt.Sprintf(`# do-manager --ttl dead-man switch: self-destruct after %d min (cost-safety)
+DM_ID=$(curl -s http://169.254.169.254/metadata/v1/id)
+nohup bash -c "sleep %d; curl -s -X DELETE -H 'Authorization: Bearer %s' https://api.digitalocean.com/v2/droplets/$DM_ID" >/dev/null 2>&1 &
+`, ttlMin, ttlMin*60, token)
+	if script == "" {
+		return "#!/bin/bash\n" + deadman
+	}
+	parts := strings.SplitN(script, "\n", 2)
+	if strings.HasPrefix(parts[0], "#!") { // schedule right after the shebang
+		rest := ""
+		if len(parts) > 1 {
+			rest = parts[1]
+		}
+		return parts[0] + "\n" + deadman + rest
+	}
+	return "#!/bin/bash\n" + deadman + script
+}
+
 func injectPassword(script, password string) string {
 	cloudConfig := fmt.Sprintf(
 		"#cloud-config\nchpasswd:\n  list: |\n    root:%s\n  expire: false\nssh_pwauth: true\n",
@@ -526,6 +551,13 @@ func runDropletCreate(cmd *cobra.Command, args []string) error {
 	ud, err := resolveCloudInit(createUserData, createUserDataFile, createTemplate, parseTmplVars(createTemplateVar))
 	if err != nil {
 		return err
+	}
+	if createTTL > 0 {
+		cfg, cerr := config.Load()
+		if cerr != nil {
+			return cerr
+		}
+		ud = injectTTL(ud, createTTL, cfg.Token)
 	}
 	if createPassword != "" {
 		ud = injectPassword(ud, createPassword)
