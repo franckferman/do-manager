@@ -21,18 +21,23 @@ mkdir -p "{{.CrackDir}}"/{wordlists,rules,tools,captures}
 
 # --- tools ------------------------------------------------------------------
 cd "{{.CrackDir}}/tools"
-git clone --depth 1 https://github.com/Mebus/cupp.git 2>/dev/null || warn "cupp clone failed"
+clone() { git clone --depth 1 "$1" "$2" 2>/dev/null || warn "clone failed: $2"; }
+clone https://github.com/Mebus/cupp.git cupp
+clone https://github.com/iphelix/pack.git pack        # PACK: maskgen/statsgen from cracked pw
 if git clone --depth 1 https://github.com/nil0x42/duplicut.git 2>/dev/null; then
     make -C duplicut 2>/dev/null || warn "duplicut build failed"   # dedup huge wordlists fast
 fi
 
-# --- rule sets (the high-hit-rate ones) -------------------------------------
+# --- rule sets (high-hit-rate + big collections) ----------------------------
 cd "{{.CrackDir}}/rules"
 fetch_rule() { wget -q "$1" -O "$2" || warn "rule fetch failed: $2"; }
 fetch_rule https://raw.githubusercontent.com/NotSoSecure/password_cracking_rules/master/OneRuleToRuleThemAll.rule OneRuleToRuleThemAll.rule
 fetch_rule https://raw.githubusercontent.com/stealthsploit/OneRuleToRuleThemStill/main/OneRuleToRuleThemStill.rule OneRuleToRuleThemStill.rule
-git clone --depth 1 https://github.com/praetorian-inc/Hob0Rules.git hob0 2>/dev/null || warn "Hob0Rules clone failed"
-git clone --depth 1 https://github.com/clem9669/hashcat-rule.git clem9669 2>/dev/null || warn "clem9669 clone failed"
+clone https://github.com/praetorian-inc/Hob0Rules.git hob0
+clone https://github.com/clem9669/hashcat-rule.git clem9669
+clone https://github.com/NSAKEY/nsa-rules.git nsa
+clone https://github.com/kaonashi-passwords/Kaonashi.git kaonashi
+clone https://github.com/n0kovo/hashcat-rules-collection.git n0kovo-collection
 
 # --- wordlists --------------------------------------------------------------
 cd "{{.CrackDir}}/wordlists"
@@ -44,9 +49,9 @@ fi
 
 cat <<EOF
 [+] crackbox ready
-    wordlists : {{.CrackDir}}/wordlists  (rockyou + any --template-var WordlistURL)
-    rules     : {{.CrackDir}}/rules  (OneRule*, Hob0Rules, clem9669)
-    tools     : cupp, cewl, duplicut, hashcat-utils
+    wordlists : {{.CrackDir}}/wordlists  (rockyou + any --template-var WordlistURL; big lists: pre-stage via snapshot/Spaces)
+    rules     : {{.CrackDir}}/rules  (OneRule*, Hob0Rules, clem9669, nsa, Kaonashi, n0kovo-collection)
+    tools     : cupp, cewl, duplicut, PACK (maskgen), hashcat-utils
     WPA crack : hashcat -m 22000 <hash.22000> {{.CrackDir}}/wordlists/rockyou.txt -r {{.CrackDir}}/rules/OneRuleToRuleThemAll.rule
     convert   : hcxpcapngtool -o hash.22000 {{.CrackDir}}/captures/*.pcapng
 EOF
